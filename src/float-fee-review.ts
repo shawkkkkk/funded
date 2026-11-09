@@ -55,10 +55,11 @@ export function reviewFloatFeeCycle(genesisHash: string, signature: string, tx: 
   const trace=summarizeTrace(signature,tx);
   if (trace.slot<p.fromSlot||trace.slot>p.throughSlot) throw Error('Transaction is outside reviewed fee-cycle slots');
   if (!trace.innerInstructionRecordingAvailable||!trace.tokenBalanceRecordingAvailable) throw Error('Missing CPI or token balance metadata');
-  if (trace.floatCalls.length!==1 || instructionDiscriminator(trace.floatCalls[0].instruction.data)!==p.discriminatorHex) {
+  const cycles=trace.floatCalls.filter(c=>instructionDiscriminator(c.instruction.data)===p.discriminatorHex);
+  if (cycles.length!==1) {
     throw Error('Exactly one recognized Float fee cycle is required');
   }
-  const cycle=trace.floatCalls[0];
+  const cycle=cycles[0];
   const a=cycle.instruction.accounts;
   if (!a||a.length!==p.accountCount||a[p.roles.launchMint]!==r.launchMint||a[p.roles.sourceVault]!==r.sourceVault||a[p.roles.destination]!==r.destination) {
     throw Error('Fee-cycle accounts do not match the expected route');

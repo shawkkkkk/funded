@@ -42,6 +42,18 @@ test('rejects an unrelated payment to the same account, even if the net balance 
   other.meta!.innerInstructions!.push({index:1,instructions:[structuredClone(movement)]});
   assert.throws(()=>review(other),/not isolated/);
 });
+test('accepts a second Float instruction only when it is distinct and does not touch the destination',()=>{
+  const tx=sample();
+  tx.transaction.message.instructions.unshift({programId:FLOAT,accounts:[route.sourceVault],data:'11111113'});
+  tx.meta!.innerInstructions![0].index=1;
+  tx.meta!.innerInstructions!.unshift({index:0,instructions:[]});
+  assert.match(review(tx).sourceRef,/:1:0$/);
+  tx.transaction.message.instructions[0].accounts!.push(route.destination);
+  assert.throws(()=>review(tx),/not isolated/);
+  tx.transaction.message.instructions[0].accounts!.pop();
+  tx.transaction.message.instructions[0].data='11111112';
+  assert.throws(()=>review(tx),/Exactly one recognized/);
+});
 test('rejects misleading transfer shapes and duplicated inner groups',()=>{
   const nested=sample();
   nested.meta!.innerInstructions![0].instructions[0].stackHeight=3;

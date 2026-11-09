@@ -34,8 +34,13 @@ export class SolanaReader {
   async recentFloatSignatures() {
     return this.read('getSignaturesForAddress',[FLOAT,{commitment:'finalized',limit:15}]);
   }
+  async finalizedAddressSignatures(account: string, limit: number, before?: string) {
+    if (!Number.isSafeInteger(limit)||limit<1||limit>25) throw Error('Address history limit must be 1–25');
+    if (before!==undefined&&!validSignature(before)) throw Error('Invalid history cursor');
+    return this.read('getSignaturesForAddress',[address(account),{commitment:'finalized',limit,...(before?{before}:{})}]);
+  }
   async finalizedTransaction(signature: string) {
-    if (!/^[1-9A-HJ-NP-Za-km-z]{80,88}$/.test(signature)) throw Error('Invalid signature');
+    if (!validSignature(signature)) throw Error('Invalid signature');
     return this.read('getTransaction',[signature,{encoding:'jsonParsed',commitment:'finalized',maxSupportedTransactionVersion:0}]);
   }
   async inspect(signature: string) {
@@ -56,4 +61,8 @@ export class SolanaReader {
     if (!acc || acc.data?.parsed?.type !== 'mint') return null;
     return { mint, tokenProgram:acc.owner, info:acc.data.parsed.info };
   }
+}
+
+export function validSignature(signature: unknown): signature is string {
+  return typeof signature==='string'&&/^[1-9A-HJ-NP-Za-km-z]{80,88}$/.test(signature);
 }
