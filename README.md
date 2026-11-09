@@ -91,4 +91,4 @@ Keep payout enrollment and financial writes closed until there is evidence for e
 | USD payouts | Approved business use, authenticated payee and recorded consent, credentialed Peer preproduction order/fill/refund tests, and an explicitly authorized capped live test that reaches verified USD on each enabled rail |
 | Public operation | Approved production infrastructure, authentication and privacy controls, financial/compliance and brand review, independent security review, tested monitoring, restore and pause procedures |
 
-The web-optimized transparent emblem is in `public/funded-mark.webp`.
+Brand assets are in `public/funded-mark.png` (full-resolution transparent source) and `public/funded-mark.webp` (web-optimized delivery asset).
