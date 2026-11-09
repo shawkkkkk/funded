@@ -21,6 +21,7 @@
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
     "@zkp2p/cash": "^0.7.3",
+    "pg": "^8.16.3",
     "viem": "^2.37.3"
   }
 }
