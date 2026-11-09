@@ -9,6 +9,7 @@ import { previewLaunch } from './launch-preview.ts';
 import { disclose } from './disclosure.ts';
 import { localSdkFacts, OPEN_QUESTIONS, SENDER_NOTICE } from './peer-cash.ts';
 import { alerts } from './alerts.ts';
+import { screenerFromEnv } from './screening.ts';
 import { isFloatCoin, launchAddress } from './float-program.ts';
 import { PublicKey } from '@solana/web3.js';
 
@@ -65,6 +66,12 @@ export function app(store: Store, reader?: SolanaReader, ledger?: PgLedger) {
         try { if (ledger) await ledger.balanced(); else store.balanced(); } catch { unbalanced = true; }
         const paused = ledger ? await ledger.pauseReason() : store.pauseReason();
         return json(200,{alerts:alerts({paused:!!paused,unbalanced,oldestAwaitingBuyerMs:null,maxWaitMs:86_400_000})});
+      }
+      if (req.method === 'GET' && path === '/api/screen') {
+        const kind = url.searchParams.get('kind');
+        const value = url.searchParams.get('value') ?? '';
+        if (kind !== 'handle' && kind !== 'mint' && kind !== 'address') return json(400,{error:'Screening subject required'});
+        return json(200, await screenerFromEnv().screen({ kind, value }));
       }
       if (req.method === 'GET' && path === '/api/disclosure') {
         const sample = disclose({quoteUnits:10_000n,convertedUsdc:null,bridgeFeeUsdc:null,deliveredUsdMicros:0n,pendingUsdc:0n,fiatVerified:false});
