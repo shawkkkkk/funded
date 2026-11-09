@@ -3,6 +3,24 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24.12" },
-  "scripts": { "start": "node src/server.ts", "dev": "node src/server.ts", "test": "node --test test/*.test.ts", "demo": "node src/demo.ts", "inspect:float": "node src/float-evidence.ts", "review:float": "node src/float-handoff.ts", "review:float-fee": "node src/float-fee-review.ts", "discover:float": "node src/float-history.ts", "intake:float": "node src/float-intake.ts", "preflight": "node src/preflight.ts" }
+  "engines": {
+    "node": ">=24.12"
+  },
+  "scripts": {
+    "start": "node src/server.ts",
+    "dev": "node src/server.ts",
+    "test": "node --test test/*.test.ts",
+    "demo": "node src/demo.ts",
+    "inspect:float": "node src/float-evidence.ts",
+    "review:float": "node src/float-handoff.ts",
+    "review:float-fee": "node src/float-fee-review.ts",
+    "discover:float": "node src/float-history.ts",
+    "intake:float": "node src/float-intake.ts",
+    "preflight": "node src/preflight.ts"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.98.4",
+    "@zkp2p/cash": "^0.7.3",
+    "viem": "^2.37.3"
+  }
 }

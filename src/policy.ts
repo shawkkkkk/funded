@@ -3,7 +3,7 @@ import type { SwapQuote } from './domain.ts';
 
 export class IntegrationBlocked extends Error {}
 export function prepareFloatLaunch(): never {
-  throw new IntegrationBlocked('Need verified Float instruction schema, signer rules and pre/post-graduation receipt traces; transaction construction disabled');
+  throw new IntegrationBlocked('Launch submission disabled. The unsigned preview does not sign or send.');
 }
 
 type PeerReader = {
