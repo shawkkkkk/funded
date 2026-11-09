@@ -6,6 +6,7 @@ import { SolanaReader } from './solana.ts';
 import { previewLaunch } from './launch-preview.ts';
 import { disclose } from './disclosure.ts';
 import { localSdkFacts, OPEN_QUESTIONS, SENDER_NOTICE } from './peer-cash.ts';
+import { alerts } from './alerts.ts';
 import { isFloatCoin, launchAddress } from './float-program.ts';
 import { PublicKey } from '@solana/web3.js';
 
@@ -54,6 +55,11 @@ export function app(store: Store, reader?: SolanaReader) {
       if (req.method === 'GET' && path === '/api/status') {
         const peer = localSdkFacts();
         return json(200,{mode:'local_draft_only',product:'Funded',launchEnabled:false,payoutEnabled:false,peerOrdersEnabled:false,rpcConfigured:!!reader,paused:store.pauseReason()??null,senderDisplay:'unresolved',senderNotice:SENDER_NOTICE,openQuestions:OPEN_QUESTIONS,peer:{spreadBps:peer.spreadBps,minBaseUnits:peer.minBaseUnits,ordersEnabled:false}});
+      }
+      if (req.method === 'GET' && path === '/api/alerts') {
+        let unbalanced = false;
+        try { store.balanced(); } catch { unbalanced = true; }
+        return json(200,{alerts:alerts({paused:!!store.pauseReason(),unbalanced,oldestAwaitingBuyerMs:null,maxWaitMs:86_400_000})});
       }
       if (req.method === 'GET' && path === '/api/disclosure') {
         const sample = disclose({quoteUnits:10_000n,convertedUsdc:null,bridgeFeeUsdc:null,deliveredUsdMicros:0n,pendingUsdc:0n,fiatVerified:false});

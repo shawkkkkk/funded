@@ -176,11 +176,14 @@ test('preview and pages stay unsigned, and the schema names the payout tables', 
     assert.equal(preview.status, 200);
     assert.equal(encoded.submit, false);
     assert.equal(encoded.feeReceiver, receiver);
+    const quiet = await (await fetch(origin + '/api/alerts')).json();
+    assert.deepEqual(quiet.alerts, []);
     const account = await (await fetch(origin + '/api/float-account?mint=' + mint)).json();
     assert.equal(account.launch, 'AZxc1mZKAsFkr8KFYW8rzsAjuwTC5RtmwoVYDEsvqAv');
     assert.equal(account.verifiedFundedLaunch, false);
     store.pause('hold');
     assert.equal((await fetch(origin + '/api/launch-preview', { method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify(body) })).status, 423);
+    assert.deepEqual((await (await fetch(origin + '/api/alerts')).json()).alerts, [{ kind: 'paused', severity: 'info' }]);
   } finally {
     delete process.env.FUNDED_FEE_RECEIVER;
     await new Promise(resolve => server.close(resolve));
