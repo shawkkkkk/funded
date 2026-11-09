@@ -63,6 +63,12 @@ To find candidates without knowing a transaction signature, run `npm run discove
 - **Bridge:** [Circle CCTP](https://developers.circle.com/cctp/concepts/supported-chains-and-domains) lists Solana and Base. Use native Solana USDC into canonical Base USDC, evaluating standard CCTP first. Persist source burn and message identity, verify attestation and finalized matching destination mint/recipient/amount; recover the same message on delay, never issue another burn for uncertain submission. Evaluate a separately qualified fallback, not silent rerouting.
 - **Economics:** Peer Cash documents zero-spread oracle pricing rather than custom LP spreads; zero spread does not make an end-to-end payout free. [BagsPay's guide](https://docs.bags.fm/how-to-guides/pay-fees-to-x-money) could not be retrieved directly; its thresholds and discounts from the brief are unverified references. Measure fill latency, calculate batch minimum from conversion, bridge and gas overhead, and show actual cost and fiat. If explicit LP incentives are required, validate a supported lower-level protocol configuration or a separately funded incentive; never imply the Cash SDK supports a custom discount or quietly lower recipients' USD.
 
+## Read-only payout preflight
+
+Run `npm run preflight -- swap <private-input.json>` to inspect a Jupiter Swap V2 exact-input quote for an approved pairing asset. Input fields are `asset` (`native:sol` or a mint address), `units` (integer string), `taker` (public Solana address), and `policy` (`assets`, `pools`, `topLevelPrograms` arrays, numeric `slippageBps`, `maxImpactBps`, `maxAgeMs`, and string `referenceMinNet` in USDC base units). An optional `FUNDED_JUPITER_API_KEY` is sent only to Jupiter. The check accepts only one approved pool with no added tip; liquidity can change and multi-hop routes remain on hold. It does not decode or simulate instructions, expose an unsigned transaction, or establish that a quote will settle.
+
+Run `npm run preflight -- bridge <private-input.json>` to check an **existing** Solana USDC burn using [Circle Iris](https://developers.circle.com/api-reference/cctp/all/get-messages-v2). Input fields are `signature`, `senderProgram`, `baseMessenger`, `sourceWallet`, `baseRecipient`, `burnUnits`, `maxFeeUnits`, and `minimumNetUnits`. Pin these independently before looking up the burn; do not copy them from the response. The check accepts one standard, no-hook, unrestricted-caller Solana-to-Base message matching the pinned fields and fee limits. It does not verify attestation signatures or destination minting. A missing message is not authorization to re-burn. Exit code 2 means pending/held; exit code 1 means the request was invalid or failed to run. Neither command updates the ledger or sends a transaction.
+
 ## Production architecture
 
 1. **Web and authorization:** React/Next.js web and TypeScript API are the target. Authenticate creator access with a short-lived, origin-bound Solana challenge. Separate the launch signer from the payout recipient. Use an expiring recipient consent flow, immutable payee IDs when available, and versioned rail preferences. Changing payee requires re-verification, an audit event and a hold; never change the destination of an existing order. One-time provider onboarding is not a fee claim. No public claim endpoint.
@@ -73,5 +79,16 @@ To find candidates without knowing a transaction signature, run `npm run discove
 6. **Go-live gates:** verified launch-to-wallet enrollment and finalized receipt reconciliation; simulated conversion, bridge and amount checks; credentialed Peer preproduction tests for available rails and refunds; approved partner/custody model; qualified review of applicable [FinCEN guidance](https://www.fincen.gov/sites/default/files/2019-05/FinCEN%20Guidance%20CVC%20FINAL%20508.pdf), state laws, [OFAC guidance](https://ofac.treasury.gov/recent-actions/20211015), X Money/other app terms, tax/reporting and tokenized-asset restrictions; audit, monitoring and explicitly authorized low-limit live tests. [X Money](https://money.x.com/en/i/faq) also has its own eligibility and rollout limits.
 
 For the funded flow, verified direct USD through X Money is the first acceptance test. Then verify Cash App and Venmo independently. Preserve funds and retry automatically on no liquidity, no route or outage. Never send to another rail without prior consent.
+
+### Public release criteria
+
+Keep payout enrollment and financial writes closed until there is evidence for each applicable gate. A local fixture, provider capability listing, quoted amount, or attestation response is not a release sign-off.
+
+| Gate | Required evidence before enabling |
+| --- | --- |
+| Fee intake | Approved wallet custody and recovery, and reconciliation of attributed receipts for each supported asset and fee route |
+| Swap and bridge | Allowlisted instruction/account simulation, exact finalized source and destination settlement, and replay-safe recovery without double submission |
+| USD payouts | Approved business use, authenticated payee and recorded consent, credentialed Peer preproduction order/fill/refund tests, and an explicitly authorized capped live test that reaches verified USD on each enabled rail |
+| Public operation | Approved production infrastructure, authentication and privacy controls, financial/compliance and brand review, independent security review, tested monitoring, restore and pause procedures |
 
 The web-optimized transparent emblem is in `public/funded-mark.webp`.
