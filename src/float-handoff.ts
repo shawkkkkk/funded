@@ -47,6 +47,10 @@ function decodeData(value: unknown) {
   return Buffer.concat([Buffer.alloc(zeros), n===0n ? Buffer.alloc(0) : Buffer.from(hex.length%2 ? '0'+hex : hex,'hex')]);
 }
 
+export function instructionDiscriminator(data: unknown) {
+  return decodeData(data).subarray(0,8).toString('hex');
+}
+
 /**
  * Corroborates an external launch against operator-reviewed account semantics.
  * This is not a fee-credit authorization and never signs or sends anything.
@@ -61,7 +65,7 @@ export function reviewFloatHandoff(
   const trace=summarizeTrace(signature,tx);
   if (trace.slot < policy.fromSlot || trace.slot > policy.throughSlot) throw Error('Transaction is outside the reviewed deployment slot range');
   if (!trace.innerInstructionRecordingAvailable) throw Error('RPC omitted inner instruction metadata');
-  const launches=trace.floatCalls.filter(c=>decodeData(c.instruction.data).subarray(0,8).toString('hex')===policy.discriminatorHex);
+  const launches=trace.floatCalls.filter(c=>instructionDiscriminator(c.instruction.data)===policy.discriminatorHex);
   if (launches.length !== 1) throw Error('Exactly one reviewed Float launch instruction is required');
   const launch=launches[0];
   const a=launch.instruction.accounts;
