@@ -17,7 +17,7 @@ wallet.addEventListener('click',async () => {
 const html = (s) => { main.innerHTML = s; };
 const page = (eyebrow,title,desc,content) =>
   '<section class="page"><span class="eyebrow">'+eyebrow+'</span><h1>'+title+'</h1><p>'+desc+'</p>'+content+'</section>';
-const notice = '<div class="notice">Development build · No token launches, swaps, bridges, or payouts can be submitted.</div>';
+const notice = '<div class="notice">Development build · Funded does not submit launches, swaps, bridges, or payouts.</div>';
 const empty = (message) => '<div class="card gap"><p class="muted">'+message+'</p></div>';
 const split = '<div class="card"><span class="eyebrow">Reference only</span><h2>Float fee distribution</h2><p class="muted">Share of fees after Raydium’s allocation. Only the creator share is intended for Funded.</p><dl><dt>Holder rewards</dt><dd>15%</dd><dt>Creator allocation</dt><dd>5%</dd><dt>Buyback and burn</dt><dd>35%</dd><dt>Trader rewards</dt><dd>35%</dd><dt>Float treasury</dt><dd>10%</dd></dl></div>';
 async function request(url, init) {
@@ -55,7 +55,10 @@ if (current === '/') {
   <label>Token image (up to 1 MB)<input name="image" type="file" accept="image/png,image/jpeg,image/webp"></label>
   <label>Website<input name="website" type="url" placeholder="https://"></label><label>X profile URL<input name="x" type="url" placeholder="https://x.com/…"></label><label>Telegram<input name="telegram" type="url" placeholder="https://t.me/…"></label>
   <label class="full">Description<textarea name="description" maxlength="1000"></textarea></label>
-  </div><div class="actions"><button class="btn" type="submit">Save and review draft</button></div><pre id="out" aria-live="polite"></pre></form>${split}</div>`));
+  </div><div class="actions"><button class="btn" type="submit">Save and review draft</button></div><pre id="out" aria-live="polite"></pre></form>
+  <div>${split}<section class="card gap" aria-labelledby="handoff-title"><span class="eyebrow">Official Float handoff</span>
+  <h2 id="handoff-title">Continue on Float</h2><p class="muted">Save your draft first. For a Funded intake trial, wait for the operator to assign a dedicated fee wallet. On Float, select <strong>Other wallet</strong> and use that exact address. Draft details aren’t sent to Float and USD payouts aren’t active.</p>
+  <div class="actions"><a class="btn ghost" href="https://www.floatlaunch.xyz/create" target="_blank" rel="noopener noreferrer">Open Float’s launch form <span aria-hidden="true">↗</span></a></div></section></div></div>`));
   const form = document.querySelector('#draft'), pair = form.elements.pair, custom = document.querySelector('#custom');
   form.elements.payoutRail.addEventListener('change',()=>{form.elements.recipient.placeholder=form.elements.payoutRail.value==='cashapp'?'$cashtag':'@handle';});
   pair.addEventListener('change',()=>{custom.hidden = pair.value !== 'custom'; form.elements.customMint.required = !custom.hidden;});

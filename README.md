@@ -21,7 +21,19 @@ Run `npm run demo` for a **fixture-only** automatic payout from two below-minimu
 
 ### Default launch path: official Float handoff
 
-Use Float’s official launch form and set **Other wallet** to the dedicated Funded fee wallet. Treat Float’s documented routing as an upstream dependency; a historical sample proving payment to a separate wallet is not a launch prerequisite. Funded still has to record the selected wallet and match it to the launched mint before enabling intake. The tools below are optional diagnostics for the handoff path, not a substitute for reconciling receipts.
+Use Float’s official launch form and set **Other wallet** to the dedicated Funded fee wallet. Treat Float’s documented routing as an upstream dependency; a historical sample proving payment to a separate wallet is not a launch prerequisite. Funded still has to record the selected wallet and match it to the launched mint before enabling intake. The local launch page links to Float’s official form but does not send draft data or submit anything. Use these operator-only commands with the same `FUNDED_DB` as the draft server:
+
+```sh
+npm run intake:float -- reserve <draft-id> <dedicated-fee-wallet>
+npm run intake:float -- confirm <draft-id> <launch-signature> <launch-mint> <receiving-account> <operator-evidence-ref>
+npm run intake:float -- observe <draft-id> <receipt-signature>
+npm run intake:float -- review <draft-id> <receipt-signature> <reviewed-cycle-policy.json> <reviewed-source-vault>
+npm run intake:float -- audit <draft-id>
+```
+
+- Set `FUNDED_EXPECT_GENESIS` for all commands except `audit`; chain reads also need one trusted `FUNDED_READ_RPC`. The operator must supply an existing wallet they are authorized to use and attest to the exact wallet selection in Float. The confirmation checks finalized mint visibility and looks for the mint, creator signer and Float call in the transaction, but does not decode the wallet selection or verify custody.
+- Use the enrolled wallet address for native SOL or the specific receiving token account for SPL. The observation stores an exact finalized **net balance change**, not proof of fee origin. It requires a later slot than the launch and complete before/after balances. Wrapped SOL routed to an SPL account is not a native SOL observation. Unsupported or ambiguous movements cannot be credited.
+- The optional review stores a policy match alongside the held observation when the existing narrow SPL verifier agrees. Neither step writes to the payout ledger or starts a conversion. No production attribution policy, signer, or payout provider is enabled. Keep this database and operator evidence private.
 
 ### Capture launch and fee-cycle evidence without signing
 
