@@ -19,6 +19,11 @@ const page = (eyebrow,title,desc,content) =>
   '<section class="page"><span class="eyebrow">'+eyebrow+'</span><h1>'+title+'</h1><p>'+desc+'</p>'+content+'</section>';
 const notice = '<div class="notice">Development build · Funded does not submit launches, swaps, bridges, or payouts.</div>';
 const sender = '<p class="muted">A matched liquidity provider sends the dollars through X Money. The sender you see may be that provider. It is not confirmed whether a payment can display as @fundedonfloat. There is no claim page.</p>';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function costList(cost) {
+  if (!cost) return '';
+  return '<dl><dt>Original units</dt><dd>'+esc(cost.originalQuoteUnits)+'</dd><dt>Creator share</dt><dd>'+esc(cost.creatorUnits)+'</dd><dt>Rounding dust</dt><dd>'+esc(cost.roundingDustUnits)+'</dd><dt>Conversion to USDC</dt><dd>'+esc(cost.convertedUsdc ?? 'pending, no safe route')+'</dd><dt>Bridge fee</dt><dd>'+esc(cost.bridgeFeeUsdc ?? 'not bridged')+'</dd><dt>LP discount</dt><dd>'+esc(cost.lpDiscountBps)+' bps</dd><dt>USD micros delivered</dt><dd>'+esc(cost.deliveredUsdMicros)+'</dd><dt>Still pending</dt><dd>'+esc(cost.pendingUsdc)+'</dd><dt>Payment complete</dt><dd>'+(cost.paymentComplete?'yes':'no')+'</dd></dl>';
+}
 const empty = (message) => '<div class="card gap"><p class="muted">'+message+'</p></div>';
 const split = '<div class="card"><span class="eyebrow">Reference only</span><h2>Float fee distribution</h2><p class="muted">Share of fees after Raydium’s allocation. Only the creator share is intended for Funded.</p><dl><dt>Holder rewards</dt><dd>15%</dd><dt>Creator allocation</dt><dd>5%</dd><dt>Buyback and burn</dt><dd>35%</dd><dt>Trader rewards</dt><dd>35%</dd><dt>Float treasury</dt><dd>10%</dd></dl></div>';
 async function request(url, init) {
@@ -116,14 +121,29 @@ if (current === '/') {
   const out = document.querySelector('#mintout');
   request('/api/mint?mint='+encodeURIComponent(current.split('/').at(-1))).then(v=>renderOutput(out,v)).catch(e=>renderOutput(out,e.message,true));
 } else if (current === '/earnings') {
-  html(page('Creator workspace','Creator earnings','One handle can cover many tokens. Balances appear only after a receipt is attributed. Nothing here is a claim.',notice+sender+'<pre class="card gap" id="cost" aria-live="polite">Reading the cost breakdown…</pre>'));
-  request('/api/disclosure').then(v=>renderOutput(document.querySelector('#cost'),v)).catch(e=>renderOutput(document.querySelector('#cost'),e.message,true));
+  html(page('Creator workspace','Creator earnings','One handle can cover many tokens. Balances appear only after a receipt is attributed. Nothing here is a claim.',notice+sender+`
+  <form id="earn" class="card entry"><label>X handle<input name="handle" required maxlength="15"></label><button class="btn">Show earnings</button></form>
+  <div id="earnout" class="card gap" aria-live="polite"></div>`));
+  document.querySelector('#earn').addEventListener('submit', async event => {
+    event.preventDefault();
+    const out = document.querySelector('#earnout');
+    out.textContent = 'Reading…';
+    try {
+      const data = await request('/api/earnings?handle='+encodeURIComponent(event.currentTarget.elements.handle.value));
+      const rows = data.items.length ? data.items.map(item => '<section><h2>'+esc(item.mint)+'</h2><p>'+esc(item.status)+' · '+esc(item.asset)+' · '+esc(item.units)+'</p>'+costList(item.cost)+'</section>').join('') : '<p class="muted">No attributed earnings for this handle.</p>';
+      out.innerHTML = '<p class="muted">'+esc(data.senderNotice)+'</p><p>LP discount '+esc(data.lpDiscountBps)+' bps. Payment complete: '+(data.paymentComplete?'yes':'no')+'.</p>'+rows;
+    } catch (error) { out.textContent = error.message; }
+  });
 } else if (current === '/liquidity') {
-  html(page('Peer settlement','Liquidity activity','A matched liquidity provider pays the creator through the selected app. A match is not a completed payment.',notice+sender+empty('No verified liquidity-provider activity.')));
+  html(page('Peer settlement','Liquidity activity','A matched liquidity provider pays the creator through the selected app. A match is not a completed payment.',notice+sender+'<div id="liq" class="card gap" aria-live="polite">Reading…</div>'));
+  request('/api/liquidity').then(data => {
+    const rows = data.items.length ? data.items.map(item => '<li>'+esc(item.mint)+' · '+esc(item.decision)+' · spread '+esc(item.spreadBps)+' bps · orders '+(item.ordersEnabled?'on':'off')+'</li>').join('') : '<p class="muted">No liquidity-provider activity.</p>';
+    document.querySelector('#liq').innerHTML = '<p class="muted">'+esc(data.senderNotice)+'</p><p>Sender display: '+esc(data.senderDisplay)+'.</p><ul>'+rows+'</ul>';
+  }).catch(error => { document.querySelector('#liq').textContent = error.message; });
 } else {
   html(page('Public record','Payout history','Only verified settlement will appear here. Account handles, mailbox data and private recovery information are not public.',notice+'<div id="rows" class="card gap" aria-live="polite">Reading…</div>'));
   request('/api/payouts').then(data=>{
-    const rows = data.items.length ? '<ul>'+data.items.map(item=>'<li>'+item.status+' · '+item.asset+' · '+item.units+'</li>').join('')+'</ul>' : '<p class="muted">No verified Funded payouts.</p>';
-    document.querySelector('#rows').innerHTML = '<p class="muted">'+data.senderNotice+'</p>'+rows;
+    const rows = data.items.length ? data.items.map(item=>'<section><h2>'+esc(item.status)+'</h2><p>'+esc(item.asset)+' · '+esc(item.units)+'</p>'+costList(item.cost)+'</section>').join('') : '<p class="muted">No verified Funded payouts.</p>';
+    document.querySelector('#rows').innerHTML = '<p class="muted">'+esc(data.senderNotice)+'</p><p>LP discount '+esc(data.lpDiscountBps)+' bps.</p>'+rows;
   }).catch(e=>{ document.querySelector('#rows').textContent = e.message; });
 }

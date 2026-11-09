@@ -196,6 +196,15 @@ export class PgLedger {
       FROM batches b JOIN launches l ON l.id=b.launch_id ORDER BY b.created_at DESC LIMIT 100`);
     return rows.rows;
   }
+  async liquidityActivity() {
+    const rows = await this.pool.query(`SELECT o.batch_id, o.payload, l.mint, b.status, b.asset, b.units::text AS units, b.paid_usd_micros::text AS paid_usd
+      FROM observations o JOIN batches b ON b.id=o.batch_id JOIN launches l ON l.id=b.launch_id
+      WHERE o.kind='peer_plan' ORDER BY o.created_at DESC LIMIT 100`);
+    return rows.rows.map(row => ({
+      batchId: row.batch_id, mint: row.mint, status: row.status, asset: row.asset, units: row.units, paidUsd: row.paid_usd,
+      decision: row.payload?.decision ?? null, ordersEnabled: false, spreadBps: 0, senderDisplay: 'unresolved' as const
+    }));
+  }
   async creatorBatches(creatorHandle: string) {
     const rows = await this.pool.query(`SELECT l.mint, l.quote_mint, b.id, b.status, b.asset, b.units::text AS units, b.paid_usd_micros::text AS paid_usd
       FROM batches b JOIN launches l ON l.id=b.launch_id JOIN creators c ON c.id=l.creator_id WHERE c.handle=$1 ORDER BY b.created_at DESC`, [handle(creatorHandle)]);
