@@ -1,0 +1,104 @@
+const main = document.querySelector('#main');
+const current = location.pathname;
+const wallet = document.querySelector('#wallet');
+const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+for (const a of document.querySelectorAll('nav a')) if (a.pathname === current) a.setAttribute('aria-current','page');
+wallet.addEventListener('click',async () => {
+  const provider = window.phantom?.solana ?? window.solana;
+  if (!provider?.connect) { wallet.textContent = 'Wallet not detected'; return; }
+  try {
+    const result = await provider.connect();
+    const key = result.publicKey.toString();
+    const field = document.querySelector('[name=creatorWallet]');
+    if (field) field.value = key;
+    wallet.textContent = key.slice(0,5)+'…'+key.slice(-4);
+  } catch { wallet.textContent = 'Connect wallet'; }
+});
+const html = (s) => { main.innerHTML = s; };
+const page = (eyebrow,title,desc,content) =>
+  '<section class="page"><span class="eyebrow">'+eyebrow+'</span><h1>'+title+'</h1><p>'+desc+'</p>'+content+'</section>';
+const notice = '<div class="notice">Development build · No token launches, swaps, bridges, or payouts can be submitted.</div>';
+const empty = (message) => '<div class="card gap"><p class="muted">'+message+'</p></div>';
+const split = '<div class="card"><span class="eyebrow">Reference only</span><h2>Float fee distribution</h2><p class="muted">Share of fees after Raydium’s allocation. Only the creator share is intended for Funded.</p><dl><dt>Holder rewards</dt><dd>15%</dd><dt>Creator allocation</dt><dd>5%</dd><dt>Buyback and burn</dt><dd>35%</dd><dt>Trader rewards</dt><dd>35%</dd><dt>Float treasury</dt><dd>10%</dd></dl></div>';
+async function request(url, init) {
+  const r = await fetch(url,init);
+  const data = await r.json();
+  if (!r.ok) throw Error(data.error ?? 'Request failed');
+  return data;
+}
+function renderOutput(el,value,isError=false) {
+  el.textContent = typeof value === 'string' ? value : JSON.stringify(value,null,2);
+  el.classList.toggle('err',isError);
+}
+if (current === '/') {
+  html(`<section class="hero">
+    <div><span class="eyebrow">Independent Solana launchpad</span><h1>Launch on Float.<br>Get paid in dollars.</h1><p>Funded is building automatic USD payouts from genuine Float creator fees. Pick X Money, Cash App, or Venmo once. No claim button.</p>
+    <div class="actions"><a class="btn" href="/launch">Prepare a launch <span aria-hidden="true">→</span></a><a class="btn ghost" href="/explore">Explore the protocol</a></div></div>
+    <div class="card path"><span class="eyebrow">Planned payout flow</span><h2>From trading fees to USD</h2><ol>
+    <li><span class="num">01</span><div><strong>Launch a Float token</strong><small>Float keeps its native trading and reward mechanics.</small></div></li>
+    <li><span class="num">02</span><div><strong>Collect the creator share</strong><small>Receive fees in the token’s pairing asset.</small></div></li>
+    <li><span class="num">03</span><div><strong>Convert when a safe route exists</strong><small>Unroutable assets remain pending.</small></div></li>
+    <li><span class="num">04</span><div><strong>Settle to the selected payout app</strong><small>Mark payment complete only after verification.</small></div></li></ol></div>
+  </section>${notice}<section class="grid" aria-label="Funded principles"><div class="card"><h2>Genuine Float tokens</h2><p>No substitute token contract.</p></div><div class="card"><h2>Multi-asset by design</h2><p>Pairing-asset support is separate from safe conversion availability.</p></div><div class="card"><h2>Traceable payouts</h2><p>Separate received fees, conversion, bridge settlement and verified USD.</p></div></section>`);
+} else if (current === '/launch') {
+  html(page('Launch portal','Prepare a Float launch','Save and review a local draft. This is not an unsigned transaction or a token deployment.',notice+`
+  <div class="layout gap"><form id="draft" class="card">
+  <div class="fields">
+  <label>Token name<input name="name" required maxlength="32"></label><label>Ticker<input name="ticker" required maxlength="10" pattern="[A-Za-z0-9]{1,10}"></label>
+  <label>Pairing asset<select name="pair"><option value="native:sol">SOL</option><option value="${USDC}">USDC</option><option value="custom">Other Solana mint · draft only</option></select></label>
+  <label id="custom" hidden>Pairing mint<input name="customMint" minlength="32" maxlength="44"></label>
+  <label>Reference trading fee<select name="feeBps"><option value="100">1%</option><option value="200">2%</option><option value="250">2.5%</option></select></label>
+  <label>Preferred payout app<select name="payoutRail"><option value="xmoney">X Money</option><option value="cashapp">Cash App</option><option value="venmo">Venmo</option></select></label>
+  <label>Recipient handle<input name="recipient" placeholder="@handle" required maxlength="31"></label>
+  <label>First buy (asset base units)<input name="firstBuyBaseUnits" inputmode="numeric" pattern="[0-9]+" value="0" required></label>
+  <label class="full">Solana creator wallet<input name="creatorWallet" minlength="32" maxlength="44" required></label>
+  <label>Token image (up to 1 MB)<input name="image" type="file" accept="image/png,image/jpeg,image/webp"></label>
+  <label>Website<input name="website" type="url" placeholder="https://"></label><label>X profile URL<input name="x" type="url" placeholder="https://x.com/…"></label><label>Telegram<input name="telegram" type="url" placeholder="https://t.me/…"></label>
+  <label class="full">Description<textarea name="description" maxlength="1000"></textarea></label>
+  </div><div class="actions"><button class="btn" type="submit">Save and review draft</button></div><pre id="out" aria-live="polite"></pre></form>${split}</div>`));
+  const form = document.querySelector('#draft'), pair = form.elements.pair, custom = document.querySelector('#custom');
+  form.elements.payoutRail.addEventListener('change',()=>{form.elements.recipient.placeholder=form.elements.payoutRail.value==='cashapp'?'$cashtag':'@handle';});
+  pair.addEventListener('change',()=>{custom.hidden = pair.value !== 'custom'; form.elements.customMint.required = !custom.hidden;});
+  form.addEventListener('submit',async(e)=>{
+    e.preventDefault();
+    const button = form.querySelector('button'), out = document.querySelector('#out');
+    button.disabled = true;
+    try {
+      const v = Object.fromEntries(new FormData(form));
+      if (v.pair === 'custom') v.pair = v.customMint;
+      v.feeBps = Number(v.feeBps);
+      if (v.image.size) {
+        if (v.image.size > 1_000_000) throw Error('Choose an image no larger than 1 MB');
+        v.imageType = v.image.type;
+        const bytes = new Uint8Array(await v.image.arrayBuffer());
+        let binary = '';
+        for (const byte of bytes) binary += String.fromCharCode(byte);
+        v.image = btoa(binary);
+      } else delete v.image;
+      delete v.customMint;
+      const result = await request('/api/drafts',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(v)});
+      renderOutput(out,{draft:result.id,name:v.name,ticker:v.ticker,pair:v.pair,payoutRail:v.payoutRail,referenceFeeBps:v.feeBps,firstBuyBaseUnits:v.firstBuyBaseUnits,status:'Saved locally. No transaction prepared or signed; payee not verified.'});
+    } catch(err) { renderOutput(out,err.message,true); }
+    finally { button.disabled = false; }
+  });
+} else if (current === '/explore') {
+  html(page('Read-only tools','Float explorer','Inspect finalized program activity or look up a Solana mint. A program call alone does not prove a Funded launch.',notice+`
+  <div class="card gap"><form id="tx" class="entry"><label>Transaction signature<input name="signature" minlength="80" maxlength="88" required></label><button class="btn">Inspect</button></form>
+  <button id="recent" class="btn ghost">Load recent Float activity</button><pre id="txout" aria-live="polite"></pre>
+  <form id="token" class="entry"><label>Token mint<input name="mint" pattern="[1-9A-HJ-NP-Za-km-z]{32,44}" required></label><button class="btn">Open mint detail</button></form></div>`));
+  const out = document.querySelector('#txout');
+  async function inspect(query) { renderOutput(out,'Reading…'); try { renderOutput(out,await request('/api/transactions'+query)); } catch(e){renderOutput(out,e.message,true);} }
+  document.querySelector('#tx').addEventListener('submit',e=>{e.preventDefault();inspect('?signature='+encodeURIComponent(e.currentTarget.elements.signature.value));});
+  document.querySelector('#recent').addEventListener('click',()=>inspect(''));
+  document.querySelector('#token').addEventListener('submit',e=>{e.preventDefault();location.href='/token/'+encodeURIComponent(e.currentTarget.elements.mint.value);});
+} else if (current.startsWith('/token/')) {
+  html(page('Solana mint','Token details','Read finalized mint metadata. This view does not establish Float provenance.',notice+'<pre class="card gap" id="mintout" aria-live="polite">Reading…</pre>'));
+  const out = document.querySelector('#mintout');
+  request('/api/mint?mint='+encodeURIComponent(current.split('/').at(-1))).then(v=>renderOutput(out,v)).catch(e=>renderOutput(out,e.message,true));
+} else if (current === '/earnings') {
+  html(page('Creator workspace','Creator earnings','Live creator balances will appear after wallet authentication, fee attribution and reconciliation are enabled.',notice+empty('No verified creator earnings are available in this build.')));
+} else if (current === '/liquidity') {
+  html(page('Peer settlement','Liquidity activity','Matched orders and verified payments will appear after the live settlement integration is authorized.',notice+empty('No verified liquidity-provider activity.')));
+} else {
+  html(page('Public record','Payout history','Only verified settlement will appear here. Account handles, mailbox data and private recovery information are not public.',notice+empty('No verified Funded payouts.')));
+}
