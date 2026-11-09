@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { amount, payoutDestination, SOLANA_USDC } from './domain.ts';
+import { address, amount, payoutDestination, SOLANA_USDC } from './domain.ts';
 import type { PayoutRail, Status } from './domain.ts';
 import { Store } from './store.ts';
 import type { Evidence } from './store.ts';
@@ -35,10 +35,23 @@ export class DryRun {
       batch_id TEXT PRIMARY KEY REFERENCES batches(id), rail TEXT NOT NULL,
       username TEXT NOT NULL, consent TEXT NOT NULL, due INTEGER NOT NULL,
       failures INTEGER NOT NULL DEFAULT 0, done INTEGER NOT NULL DEFAULT 0, reason TEXT
-    ); CREATE INDEX IF NOT EXISTS dry_run_due ON dry_run_jobs(done,due,batch_id);`);
+    ); CREATE INDEX IF NOT EXISTS dry_run_due ON dry_run_jobs(done,due,batch_id);
+    CREATE TABLE IF NOT EXISTS dry_run_staged(
+      origin_ref TEXT PRIMARY KEY, group_key TEXT NOT NULL, units TEXT NOT NULL,
+      batch_id TEXT REFERENCES batches(id)
+    );
+    CREATE INDEX IF NOT EXISTS dry_run_staged_group ON dry_run_staged(group_key,batch_id);
+    CREATE TABLE IF NOT EXISTS dry_run_pending_totals(group_key TEXT PRIMARY KEY, units TEXT NOT NULL);`);
   }
   enroll(receipt: Receipt, destination: Destination, now: number) {
     if (!/^fixture:[\w:-]{1,140}$/.test(receipt.originRef)) throw Error('Only fixture receipts are accepted');
+    if (receipt.originRef.startsWith('fixture:batch:')) throw Error('Reserved batch reference');
+    return this.store.atomic(()=>{
+      if (this.store.db.prepare('SELECT 1 FROM dry_run_staged WHERE origin_ref=?').get(receipt.originRef)) throw Error('Receipt already uses staged batching');
+      return this.enrollInternal(receipt,destination,now);
+    });
+  }
+  private enrollInternal(receipt:Receipt,destination:Destination,now:number) {
     if (!Number.isSafeInteger(now) || now < 0 || now > 8_640_000_000_000_000) throw Error('Invalid time');
     const target = normalize(destination);
     return this.store.atomic(()=>{
@@ -50,6 +63,39 @@ export class DryRun {
         this.store.db.prepare('INSERT INTO dry_run_jobs(batch_id,rail,username,consent,due) VALUES(?,?,?,?,?)').run(id,target.rail,target.handle,target.consent,now);
       }
       return id;
+    });
+  }
+
+  /** Accumulate only already-converted fixture USDC for one mint and consent. */
+  stageUsdc(receipt:Receipt,destination:Destination,now:number) {
+    if (receipt.asset!==SOLANA_USDC || !/^fixture:[\w:-]{1,140}$/.test(receipt.originRef) || receipt.originRef.startsWith('fixture:batch:')) {
+      throw Error('Only unstaged USDC fixture receipts are accepted');
+    }
+    if (!Number.isSafeInteger(now)||now<0||now>8_640_000_000_000_000) throw Error('Invalid time');
+    const mint=address(receipt.mint), units=amount(receipt.units);
+    if (units<=0n) throw Error('Staged amount must be positive');
+    const target=normalize(destination);
+    const group=createHash('sha256').update(JSON.stringify([mint,target.rail,target.handle,target.consent])).digest('hex');
+    return this.store.atomic(()=>{
+      const db=this.store.db;
+      const prior=db.prepare('SELECT group_key,units,batch_id FROM dry_run_staged WHERE origin_ref=?').get(receipt.originRef);
+      if (prior) {
+        if (prior.group_key!==group||prior.units!==receipt.units) throw Error('Conflicting staged receipt replay');
+        return {batchId:prior.batch_id as string|null,duplicate:true};
+      }
+      if (db.prepare('SELECT 1 FROM batches WHERE origin_ref=?').get(receipt.originRef)) throw Error('Receipt already enrolled directly');
+      db.prepare('INSERT INTO dry_run_staged(origin_ref,group_key,units) VALUES(?,?,?)').run(receipt.originRef,group,receipt.units);
+      const previous=db.prepare('SELECT units FROM dry_run_pending_totals WHERE group_key=?').get(group);
+      const total=(previous?amount(previous.units):0n)+units;
+      if (total<this.minBaseUnits) {
+        db.prepare('INSERT INTO dry_run_pending_totals VALUES(?,?) ON CONFLICT(group_key) DO UPDATE SET units=excluded.units').run(group,total.toString());
+        return {batchId:null,duplicate:false};
+      }
+      const digest=createHash('sha256').update(JSON.stringify([group,receipt.originRef])).digest('hex');
+      const id=this.enrollInternal({mint,asset:SOLANA_USDC,units:total.toString(),originRef:'fixture:batch:'+digest},destination,now);
+      db.prepare('UPDATE dry_run_staged SET batch_id=? WHERE group_key=? AND batch_id IS NULL').run(id,group);
+      db.prepare('DELETE FROM dry_run_pending_totals WHERE group_key=?').run(group);
+      return {batchId:id,duplicate:false};
     });
   }
 

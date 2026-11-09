@@ -23,10 +23,14 @@ export const demoEvidence: SandboxSource = (b) => {
 if (import.meta.main) {
   const store=new Store(':memory:');
   try {
-    const worker=new DryRun(store);
-    const id=worker.enroll({mint:FLOAT,asset:SOLANA_USDC,units:'10010000',originRef:'fixture:demo:receipt'},
-      {rail:'xmoney',handle:'@fixture_creator',consentId:'fixture:local_consent'},0);
+    const worker=new DryRun(store,10_000_000n);
+    const destination={rail:'xmoney' as const,handle:'@fixture_creator',consentId:'fixture:local_consent'};
+    const first=worker.stageUsdc({mint:FLOAT,asset:SOLANA_USDC,units:'4900000',originRef:'fixture:demo:receipt-1'},destination,0);
+    const second=worker.stageUsdc({mint:FLOAT,asset:SOLANA_USDC,units:'5110000',originRef:'fixture:demo:receipt-2'},destination,0);
+    const id=second.batchId;
+    if (first.batchId||!id) throw Error('Simulation failed to queue the combined receipts');
     console.log('Simulation only. No keys, network calls or real transactions.');
+    console.log('Two simulated USDC receipts combined into one payout batch.');
     for (let now=0; now<20_000; now+=1000) {
       const result=worker.tick(now,demoEvidence);
       if (result) console.log(result.status);
