@@ -34,9 +34,12 @@ export class SolanaReader {
   async recentFloatSignatures() {
     return this.read('getSignaturesForAddress',[FLOAT,{commitment:'finalized',limit:15}]);
   }
-  async inspect(signature: string) {
+  async finalizedTransaction(signature: string) {
     if (!/^[1-9A-HJ-NP-Za-km-z]{80,88}$/.test(signature)) throw Error('Invalid signature');
-    const tx = await this.read('getTransaction',[signature,{encoding:'jsonParsed',commitment:'finalized',maxSupportedTransactionVersion:0}]);
+    return this.read('getTransaction',[signature,{encoding:'jsonParsed',commitment:'finalized',maxSupportedTransactionVersion:0}]);
+  }
+  async inspect(signature: string) {
+    const tx = await this.finalizedTransaction(signature);
     if (!tx) return { signature, status:'not_found' };
     const outer = tx.transaction?.message?.instructions ?? [];
     const calls = (tx.meta?.innerInstructions ?? []) as {index:number;instructions:{programId:string}[]}[];
