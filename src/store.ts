@@ -14,7 +14,26 @@ export class Store {
       CREATE TABLE IF NOT EXISTS drafts(id TEXT PRIMARY KEY, payload TEXT NOT NULL, image BLOB, image_type TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS batches(id TEXT PRIMARY KEY, origin_ref TEXT NOT NULL UNIQUE, mint TEXT NOT NULL, status TEXT NOT NULL, units TEXT NOT NULL, asset TEXT NOT NULL, paid_usd TEXT NOT NULL DEFAULT '0', payout_target TEXT, peer_id TEXT);
       CREATE TABLE IF NOT EXISTS events(id TEXT PRIMARY KEY, batch_id TEXT NOT NULL REFERENCES batches(id), kind TEXT NOT NULL, ref TEXT NOT NULL, fingerprint TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(kind, ref));
-      CREATE TABLE IF NOT EXISTS journals(event_id TEXT NOT NULL REFERENCES events(id), asset TEXT NOT NULL, account TEXT NOT NULL, delta TEXT NOT NULL, PRIMARY KEY(event_id, asset, account));`);
+      CREATE TABLE IF NOT EXISTS journals(event_id TEXT NOT NULL REFERENCES events(id), asset TEXT NOT NULL, account TEXT NOT NULL, delta TEXT NOT NULL, PRIMARY KEY(event_id, asset, account));
+      CREATE TABLE IF NOT EXISTS controls(key TEXT PRIMARY KEY, value TEXT NOT NULL);`);
+  }
+  pause(reason: string) {
+    if (!reason || reason.length > 200) throw Error('Pause reason required');
+    this.atomic(() => {
+      this.db.prepare("DELETE FROM controls WHERE key='pause'").run();
+      this.db.prepare('INSERT INTO controls(key,value) VALUES(?,?)').run('pause', reason);
+    });
+  }
+  resume() { this.db.prepare("DELETE FROM controls WHERE key='pause'").run(); }
+  pauseReason() {
+    return (this.db.prepare("SELECT value FROM controls WHERE key='pause'").get() as { value: string } | undefined)?.value;
+  }
+  balanced() {
+    const rows = this.db.prepare('SELECT asset, delta FROM journals').all() as { asset: string; delta: string }[];
+    const totals = new Map<string, bigint>();
+    for (const row of rows) totals.set(row.asset, (totals.get(row.asset) ?? 0n) + BigInt(row.delta));
+    for (const [asset, total] of totals) if (total !== 0n) throw Error('Journal does not balance for ' + asset);
+    return true;
   }
   atomic<T>(fn: () => T): T {
     const depth = this.transactionDepth;
@@ -80,7 +99,9 @@ export class Store {
       }
       const b = this.batch(id);
       if (!b) throw Error('Unknown batch');
+      if (this.pauseReason() && (e.kind === 'swap_submitted' || e.kind === 'bridge_submitted' || e.kind === 'peer_submitted')) throw Error('Paused: new submissions are stopped');
       let status = next(b.status,e.kind), asset = b.asset, units = amount(b.units), usd = amount(b.paid_usd), target = b.payout_target, peer = b.peer_id;
+      if (e.kind === 'intent_expired' && (!peer || e.peerId !== peer || e.units || e.usdMicros || e.minFiatBps)) throw Error('Expiry does not move funds');
       const move = (a: string, from: string, to: string, n: bigint) => this.journal(e.id,a,from,to,n);
       this.event(id,e,fingerprint);
       if (e.kind === 'swap_finalized' || e.kind === 'bridge_finalized') {
