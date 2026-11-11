@@ -73,7 +73,7 @@ test('creator share is 5% of the Float fee, with dust excluded', () => {
   assert.equal(splitFloatFee(1n).dust, 1n);
   const view = disclose({ quoteUnits: 10_000n, convertedUsdc: null, bridgeFeeUsdc: null, deliveredUsdMicros: 1_000_000n, pendingUsdc: 1n, fiatVerified: true });
   assert.equal(view.paymentComplete, false);
-  assert.equal(view.lpDiscountBps, 0);
+  assert.equal(view.lpDiscountBps, null);
   assert.equal(view.deliveredUsdMicros, '0');
 });
 
@@ -83,7 +83,7 @@ test('Peer fixture does partial, full, refund, and duplicate flows without submi
   assert.equal(facts.ordersEnabled, false);
   assert.equal(facts.spreadBps, 0);
   assert.equal(facts.senderDisplay, 'unresolved');
-  assert.equal(OPEN_QUESTIONS.length, 3);
+  assert.equal(OPEN_QUESTIONS.length, 4);
   assert.deepEqual(xmoneyReceive('@Creator'), { platform: 'xmoney', currency: 'USD', payee: '@creator' });
   const cash = new FixtureCash();
   const first = cash.deposit('fixture:order-1', 2_000_000n, '@Creator');
@@ -168,7 +168,13 @@ test('preview and pages stay unsigned, and the schema names the payout tables', 
     assert.equal(status.launchEnabled, false);
     assert.equal(status.peerOrdersEnabled, false);
     assert.equal(status.senderDisplay, 'unresolved');
-    assert.equal(status.openQuestions.length, 3);
+    assert.equal(status.openQuestions.length, 4);
+    assert.equal(status.peer.marketDiscountBps, null);
+    assert.equal(status.peer.claimlessEligibility, 'unverified');
+    assert.equal(status.payoutReadiness.status, 'blocked_recipient');
+    assert.equal(status.payoutReadiness.claimRequired, false);
+    const how = await (await fetch(origin + '/how')).text();
+    assert.match(how, /Payout architecture/);
     const denied = await fetch(origin + '/api/launch-preview', { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://elsewhere.example' }, body: '{}' });
     assert.equal(denied.status, 403);
     const preview = await fetch(origin + '/api/launch-preview', { method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify(body) });

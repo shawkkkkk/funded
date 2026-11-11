@@ -203,7 +203,7 @@ Raw handles are trimmed, lowercased, and stripped of one leading `@`. Registrati
 
 `cashout` and `prepare` deposit Base USDC and register a payee. The deposit is not a USD payment. `order(depositId)` is the read. Fills are reconciled on verified `fiatPaid`, `paidCurrency`, `paymentId`, `paidAt`, and `releasedAmount`. `withdraw` returns unspent USDC after pruning expired intents; a live intent blocks a full close. `topUp` adds USDC without changing the payee. Partial withdrawal is supported. `ORDER_NOT_FOUND` right after a deposit means the indexer is behind, not that the deposit should be created again.
 
-The SDK does not expose a custom LP discount. BagsPay's published 10% then 20% discount is Bags' own pricing, not a Cash SDK parameter. Copying it would misstate the protocol. Peer's referral code pays the code owner 50 bps out of Peer's fee when liquidity fills. It does not change the creator's rate. Funded does not need a referral code to cash out.
+The SDK does not expose a custom LP discount. A zero SDK spread is not proof that a live marketplace order has no buyer discount. [Payday's public payout documentation](https://payday.direct/explore#docs/payouts), observed November 11, 2026, describes roughly 10% buyer discounting and roughly 20% after one day for its own Peer orders. That is competitor product documentation, not a Funded quote or a Peer SDK parameter. Copying either price would misstate Funded's economics. Peer's referral code pays the code owner 50 bps out of Peer's fee when liquidity fills. It does not establish or change the recipient's live rate. See [PAYOUT-BENCHMARK.md](PAYOUT-BENCHMARK.md).
 
 The owner reports that a Peer developer, Telegram `sachin0x`, replied "pls use our sdk, feel free to ping on tg". That message was not independently retrieved here. It is consistent with the public SDK and is not a partnership, a limit increase, or approval to move funds.
 
@@ -216,6 +216,7 @@ These are unresolved. The product must keep working if either answer is true.
 1. Can the whole flow be tested end to end in preproduction, including a check that the USD arrived?
 2. Do live payouts need partner approval from Peer, or a separate approval from X Money?
 3. Does the creator see the matched liquidity provider as the X Money sender, or can the payment display as @fundedonfloat?
+4. What buyer discount, minimum, expiry, and return behavior apply to a production order?
 
 The creator-facing copy has to say that a third-party liquidity provider may be the sender. @fundedonfloat is Funded's public handle. It is not a confirmed payment sender, and it is not the payee. The payee is the creator's handle.
 
@@ -235,7 +236,7 @@ The creator-facing copy has to say that a third-party liquidity provider may be 
 
 **Float, only for some operational edges.** Calling `launch` and `claim_dev_fees` does not need their permission while launches are unpaused and the program still has this interface. Their lister key is required to enable a new quote mint. Their admin can pause launches, change the split, or upgrade the program. A stable, versioned IDL and a statement of which LaunchLab program is current would remove the bundle-versus-chain discrepancy. Permission to use Float's name or mark is a brand question; Funded does not use them as its own mark.
 
-**Peer.** The public SDK is the integration. No private partnership is assumed. Live or preproduction orders still need the owner's explicit authorization, a Base USDC balance that is not in this repo, and answers to the three questions above before a payout can be described as tested. X Money eligibility is not checked by the SDK.
+**Peer.** The public SDK is the integration. No private partnership is assumed. Live or preproduction orders still need the owner's explicit authorization, a Base USDC balance that is not in this repo, and answers to the four questions above before a payout can be described as tested. X Money eligibility is not checked by the SDK.
 
 **Owner.** Choose the custody model and supply only the public receiver address. Authorize any future devnet or mainnet write. Decide whether the creator's wallet signs the launch (recommended) or a Funded wallet launches on the creator's behalf. Decide whether any LP incentive will be funded separately, because the SDK's spread is zero and it has no discount field. Counsel has to review money transmission, sanctions, X Money terms, and tokenized-stock restrictions before a public launch that handles customer funds.
 

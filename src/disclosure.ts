@@ -31,7 +31,7 @@ export function disclose(input: {
     roundingDustUnits: split.dust.toString(),
     convertedUsdc: input.convertedUsdc === null ? null : input.convertedUsdc.toString(),
     bridgeFeeUsdc: input.bridgeFeeUsdc === null ? null : input.bridgeFeeUsdc.toString(),
-    lpDiscountBps: 0,
+    lpDiscountBps: null,
     spreadBps: 0,
     deliveredUsdMicros: verified ? input.deliveredUsdMicros.toString() : '0',
     pendingUsdc: input.pendingUsdc.toString(),

@@ -96,7 +96,7 @@ The adapter speaks the public SDK:
 
 Deposit confirmation moves a batch to `awaiting_buyer`. It is not `paid`. A fill counts only when `fiat_proven` carries a payment id, USDC consumed, and USD micros inside the order's economics. Partial fills stay `partially_paid` until the escrow is zero. `withdraw` of the full remainder returns the batch to Base USDC for another attempt. An expired intent records `intent_expired` and moves no funds. The creator-facing notice states that the sender may be the liquidity provider. Whether that sender can instead be @fundedonfloat is an open product question, not a field we set.
 
-Cash App and Venmo stay in the draft form as creator-selected rails. They are not enabled for live payout. X Money is the first rail to test, after the owner authorizes a preproduction wallet.
+Cash App and Venmo remain visible as disabled planned rails in the draft form. They are not enabled for live payout. X Money is the first rail to test, after recipient eligibility, production access, custody, and a preproduction wallet are approved. If a gate fails, funds stay held as Base USDC; Funded does not create a creator-facing recovery wallet or claim balance.
 
 ## Payout state
 
@@ -118,7 +118,7 @@ Local and same-origin, as today.
 
 | Method | Path | Behavior |
 | --- | --- | --- |
-| GET | `/`, `/launch`, `/explore`, `/token/:mint`, `/earnings`, `/payouts`, `/liquidity` | Pages. No claim control. |
+| GET | `/`, `/launch`, `/how`, `/explore`, `/token/:mint`, `/earnings`, `/payouts`, `/liquidity` | Pages. No claim control. |
 | POST | `/api/drafts` | Validate and store a draft. |
 | POST | `/api/launch-preview` | Unsigned instruction preview. `submit` is false. |
 | GET | `/api/status` | Gates, pause, SDK facts that are local, open questions. |
@@ -143,7 +143,8 @@ Shown per batch, in integers:
 - the headline tier is not the creator's take: on the curve the verified tier rates are 0.75%, 1.75%, and 2.25% of volume for Float, and Float documents an additional 0.25% to Raydium
 - conversion units in and USDC out, or "pending, no safe route"
 - bridge fee and net Base USDC, or "not bridged"
-- LP discount: 0 bps, because the SDK spread is 0. A separate incentive is an owner decision and would be an explicit extra line, not a silent haircut
+- Peer protocol spread: 0 bps in the reviewed SDK capability metadata
+- Marketplace buyer discount: unknown until a live quote/order supplies it; never infer it from the SDK spread or default it to zero
 - USD micros delivered, only after `fiat_proven`
 - amount still pending
 

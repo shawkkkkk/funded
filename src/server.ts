@@ -8,15 +8,16 @@ import { PgLedger } from './pg-ledger.ts';
 import { previewLaunch } from './launch-preview.ts';
 import { disclose } from './disclosure.ts';
 import { handle as xhandle } from './domain.ts';
-import { localSdkFacts, OPEN_QUESTIONS, SENDER_NOTICE } from './peer-cash.ts';
+import { CLAIMLESS_NOTICE, localSdkFacts, MARKETPLACE_NOTICE, OPEN_QUESTIONS, SENDER_NOTICE } from './peer-cash.ts';
 import { alerts } from './alerts.ts';
 import { screenerFromEnv } from './screening.ts';
 import { isFloatCoin, launchAddress } from './float-program.ts';
 import { watchReceiver } from './fee-monitor.ts';
 import { NATIVE } from './domain.ts';
 import { PublicKey } from '@solana/web3.js';
+import { payoutReadiness } from './payout-readiness.ts';
 
-const pages = new Set(['/','/launch','/explore','/earnings','/payouts','/liquidity']);
+const pages = new Set(['/','/launch','/how','/explore','/earnings','/payouts','/liquidity']);
 const assets = new Map([['/app.js','text/javascript'],['/style.css','text/css'],['/funded-mark.webp','image/webp']]);
 const png = Buffer.from('89504e470d0a1a0a','hex');
 function isImage(bytes: Buffer, type: string) {
@@ -60,9 +61,10 @@ export function app(store: Store, reader?: SolanaReader, ledger?: PgLedger) {
       }
       if (req.method === 'GET' && path === '/api/status') {
         const peer = localSdkFacts();
+        const readiness = payoutReadiness({rail:'xmoney',xMoneyEligibility:peer.claimlessEligibility,partnerApproved:false,baseUsdcUnits:0n,minimumBaseUsdcUnits:BigInt(peer.minBaseUnits)});
         const config = loadConfig();
         const paused = ledger ? await ledger.pauseReason() : store.pauseReason();
-        return json(200,{mode:'local_draft_only',product:'Funded',launchEnabled:false,payoutEnabled:false,peerOrdersEnabled:false,launchSigner:config.launchSigner,custody:config.custody,pricing:config.pricing,database:ledger?'postgres':'sqlite',rpcConfigured:!!reader,paused:paused??null,senderDisplay:'unresolved',senderNotice:SENDER_NOTICE,openQuestions:OPEN_QUESTIONS,peer:{spreadBps:peer.spreadBps,minBaseUnits:peer.minBaseUnits,ordersEnabled:false}});
+        return json(200,{mode:'local_draft_only',product:'Funded',launchEnabled:false,payoutEnabled:false,peerOrdersEnabled:false,launchSigner:config.launchSigner,custody:config.custody,pricing:config.pricing,database:ledger?'postgres':'sqlite',rpcConfigured:!!reader,paused:paused??null,senderDisplay:'unresolved',senderNotice:SENDER_NOTICE,claimlessNotice:CLAIMLESS_NOTICE,marketplaceNotice:MARKETPLACE_NOTICE,payoutReadiness:readiness,openQuestions:OPEN_QUESTIONS,peer:{spreadBps:peer.spreadBps,marketDiscountBps:null,minBaseUnits:peer.minBaseUnits,ordersEnabled:false,claimlessEligibility:'unverified'}});
       }
       if (req.method === 'GET' && path === '/api/alerts') {
         let unbalanced = false;
@@ -78,7 +80,7 @@ export function app(store: Store, reader?: SolanaReader, ledger?: PgLedger) {
       }
       if (req.method === 'GET' && path === '/api/disclosure') {
         const sample = disclose({quoteUnits:10_000n,convertedUsdc:null,bridgeFeeUsdc:null,deliveredUsdMicros:0n,pendingUsdc:0n,fiatVerified:false});
-        return json(200,{senderNotice:SENDER_NOTICE,openQuestions:OPEN_QUESTIONS,lpDiscountBps:0,spreadBps:0,sample,paymentComplete:false});
+        return json(200,{senderNotice:SENDER_NOTICE,claimlessNotice:CLAIMLESS_NOTICE,marketplaceNotice:MARKETPLACE_NOTICE,openQuestions:OPEN_QUESTIONS,lpDiscountBps:null,spreadBps:0,sample,paymentComplete:false});
       }
       if (req.method === 'GET' && path === '/api/earnings') {
         let creator = '';
@@ -86,15 +88,15 @@ export function app(store: Store, reader?: SolanaReader, ledger?: PgLedger) {
         catch (e) { return json(400,{error:e instanceof Error ? e.message : 'Invalid handle'}); }
         const rows = ledger ? await ledger.creatorBatches(creator) : [];
         const items = rows.map(row => ({ ...row, cost: costFor(row) }));
-        return json(200,{handle:creator,items,senderNotice:SENDER_NOTICE,lpDiscountBps:0,spreadBps:0,paymentComplete:false,database:ledger?'postgres':'sqlite'});
+        return json(200,{handle:creator,items,senderNotice:SENDER_NOTICE,claimlessNotice:CLAIMLESS_NOTICE,marketplaceNotice:MARKETPLACE_NOTICE,lpDiscountBps:null,spreadBps:0,paymentComplete:false,database:ledger?'postgres':'sqlite'});
       }
       if (req.method === 'GET' && path === '/api/liquidity') {
         const items = ledger ? await ledger.liquidityActivity() : [];
-        return json(200,{items,senderNotice:SENDER_NOTICE,spreadBps:0,ordersEnabled:false,senderDisplay:'unresolved'});
+        return json(200,{items,senderNotice:SENDER_NOTICE,marketplaceNotice:MARKETPLACE_NOTICE,spreadBps:0,marketDiscountBps:null,ordersEnabled:false,senderDisplay:'unresolved'});
       }
       if (req.method === 'GET' && path === '/api/payouts') {
         const rows = ledger ? await ledger.publicBatches() : store.publicBatches();
-        return json(200,{mode:'local_draft_only',senderNotice:SENDER_NOTICE,lpDiscountBps:0,spreadBps:0,items:rows.map(row => ({...row, cost:costFor(row)}))});
+        return json(200,{mode:'local_draft_only',senderNotice:SENDER_NOTICE,claimlessNotice:CLAIMLESS_NOTICE,marketplaceNotice:MARKETPLACE_NOTICE,lpDiscountBps:null,spreadBps:0,items:rows.map(row => ({...row, cost:costFor(row)}))});
       }
       if (req.method === 'GET' && path === '/api/float-account') {
         let mint: PublicKey;
