@@ -21,7 +21,7 @@ These are Payday's published product claims. Funded has not reproduced its trans
 | Question | Evidence | Funded decision |
 | --- | --- | --- |
 | Can creator fees fund an X Money marketplace order? | A public competitor documents that design. | Keep Peer as the first rail to validate. This is supporting evidence, not Funded's approval. |
-| Does the SDK's zero spread prove recipient economics? | No. A marketplace can still use a buyer discount. | Represent live discount as unknown until a quote/order supplies it. |
+| What controls Funded's recipient rate? | Peer Cash 0.8.1 documents a zero-spread Base oracle rate that binds when the buyer submits intent. Payday's historical discount is a separate product claim. | Store the bound intent rate; label earlier estimates approximate and require fiat proof before `paid`. |
 | Is “no claim” universal? | No. It depends on recipient eligibility and successful delivery. | Verify recipient eligibility before routing. Hold Base USDC if blocked; do not create a public claim balance. |
 | Who appears as sender? | Payday documents the marketplace buyer; the owner-supplied Peer reply confirms the matched buyer for Funded. | Disclose the matched buyer as sender and identify `@fundedonfloat` only in payment notes. |
 | Is delivery immediate or guaranteed? | No. Orders depend on buyer liquidity. | Persist awaiting, partial, returned, and paid as separate states. |
@@ -32,7 +32,7 @@ Before enabling production orders, require all of the following:
 
 1. Configure the public Peer SDK. The owner-supplied Peer reply says no separate partner approval is required; business, legal, and X Money eligibility checks remain separate gates.
 2. A controlled test verifies payee ownership/consent, recipient eligibility, accepted order, partial/full fill evidence, return behavior, and actual USD receipt.
-3. Live minimum, discount, expiry, fees, and sender presentation are returned by a trusted provider response or contract state and stored with the order.
+3. The live minimum, intent-bound oracle rate, expiry, fees, and sender presentation are returned by a trusted provider response or contract state and stored with the order.
 4. Custody and signing are approved, segregated, capped, monitored, and independently reconciled.
 5. The public UI labels anything short of verified fiat evidence as pending—not paid.
 

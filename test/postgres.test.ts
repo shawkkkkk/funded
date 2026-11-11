@@ -19,6 +19,8 @@ test('config keeps execution off and remembers the recommended defaults', () => 
   assert.equal(config.launchSigner, 'creator');
   assert.equal(config.custody, 'funded_receiver_unapproved');
   assert.equal(config.pricing, 'zero_spread');
+  assert.equal(config.deploymentMode, 'local');
+  assert.equal(config.bindAddress, '127.0.0.1');
   assert.equal(loadConfig({ FUNDED_PRICING: 'separate_incentive' }).pricing, 'separate_incentive');
   assert.throws(() => loadConfig({ FUNDED_DATABASE_URL: 'mysql://local' }), /postgres/);
 });
@@ -111,7 +113,7 @@ test('postgres ledger, outbox, and planning pipeline', { skip: url ? false : 'FU
       assert.equal(status.pricing, 'zero_spread');
       const payouts = await (await fetch(origin + '/api/payouts')).json();
       assert.equal(payouts.items.length, 2);
-      assert.equal(payouts.items[0].cost.lpDiscountBps, null);
+      assert.equal(payouts.items[0].cost.lpDiscountBps, 0);
       assert.equal(payouts.items[0].cost.paymentComplete, false);
       assert.match(payouts.senderNotice, /matched buyer/);
       const earnings = await (await fetch(origin + '/api/earnings?handle=creator')).json();

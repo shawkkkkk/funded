@@ -20,7 +20,7 @@ Funded has not sent this transaction. Doing so needs the owner's explicit author
 - The public coins list: `GET https://www.floatlaunch.xyz/api/coins` (4,876 rows at the time of the read).
 - The launch instruction layout published inside Float's current website bundle (`/_next/static/immutable/chunks/1g3wbw0ya0gj2.js`, program metadata name `launchpad` `0.1.0`). The bundle is minified client code, not a signed release, so it is evidence of what the site builds, then checked against accounts and one transaction.
 - Finalized mainnet reads through `https://solana-rpc.publicnode.com`. `getGenesisHash` returned `5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d` (Solana mainnet).
-- Peer Cash SDK `@zkp2p/cash@0.7.3` installed locally. `createCashClient` and `capabilities()` were called in-process. `estimate`, `prepare`, `cashout`, `order`, `withdraw`, and `topUp` were not called.
+- Peer Cash SDK `@zkp2p/cash@0.8.1` installed locally. `createCashClient` and `capabilities()` were called in-process. `estimate`, `prepare`, `finalizePreparedCashout`, `cashout`, `order`, `withdraw`, and `topUp` were not called.
 - Peer docs: [Peer Cash guide](https://docs.peer.xyz/developer/peer-cash/guide) and the [peer-cash repository](https://github.com/zkp2p/peer-cash).
 - BagsPay, used only as a comparison: [Pay Fees to X Money](https://docs.bags.fm/how-to-guides/pay-fees-to-x-money).
 
@@ -184,9 +184,10 @@ Peer Cash can also route some non-Base assets through Relay, and the guide point
 
 ### Peer Cash and X Money
 
-Installed `@zkp2p/cash@0.7.3` with the documented receive leg. `capabilities()` on the production client returned:
+Installed `@zkp2p/cash@0.8.1` with the documented receive leg. `capabilities()` on the production client returned:
 
 - pricing `oracle-market-rate`, `spreadBps` 0
+- X Money pricing kind `oracle-at-intent-signal`: estimates are approximate and the zero-spread oracle rate binds when the buyer submits intent
 - amount minimum 10,000 base units (0.01 USDC, since `usdc(1)` is 1,000,000), recommended minimum 1,000,000 (1 USDC), maximum `null`
 - platform `xmoney`, currency `USD`, `requiresIdentityAttestation` false
 - payee hint: "X username with X Money enabled, with or without the leading @ (e.g. @andrew)"
@@ -201,9 +202,9 @@ const receive = { platform: "xmoney", currency: "USD", payee: "@YourHandle" } as
 
 Raw handles are trimmed, lowercased, and stripped of one leading `@`. Registration does not check that X Money is enabled. `prepareXMoneyConnect` / `isXMoneyConnected` link a mailbox so a receipt can be read. The guide says cash-out does not require that link, and a linked mailbox is not proof the account can receive X Money. This matches the existing local `PeerReads` gate: a connected inbox stays `eligibleForLivePayout: false`.
 
-`cashout` and `prepare` deposit Base USDC and register a payee. The deposit is not a USD payment. `order(depositId)` is the read. Fills are reconciled on verified `fiatPaid`, `paidCurrency`, `paymentId`, `paidAt`, and `releasedAmount`. `withdraw` returns unspent USDC after pruning expired intents; a live intent blocks a full close. `topUp` adds USDC without changing the payee. Partial withdrawal is supported. `ORDER_NOT_FOUND` right after a deposit means the indexer is behind, not that the deposit should be created again.
+`cashout` deposits Base USDC and registers a payee. The prepared path returns transactions to sign and submit, then requires the confirmed receipt to be passed to `finalizePreparedCashout`; the receipt and resulting deposit identity must be persisted before retrying. The deposit is not a USD payment. `order(depositId)` and its `nextActions` drive reads and recovery. Fills are reconciled on verified `fiatPaid`, `paidCurrency`, `paymentId`, `paidAt`, and `releasedAmount`. `withdraw` returns unspent USDC after pruning expired intents; a live intent blocks a full close. `topUp` adds USDC without changing the payee. Partial withdrawal is supported. `ORDER_NOT_FOUND` right after a deposit means the indexer is behind, not that the deposit should be created again.
 
-The SDK does not expose a custom LP discount. A zero SDK spread is not proof that a live marketplace order has no buyer discount. [Payday's public payout documentation](https://payday.direct/explore#docs/payouts), observed November 11, 2026, describes roughly 10% buyer discounting and roughly 20% after one day for its own Peer orders. That is competitor product documentation, not a Funded quote or a Peer SDK parameter. Copying either price would misstate Funded's economics. Peer's referral code pays the code owner 50 bps out of Peer's fee when liquidity fills. It does not establish or change the recipient's live rate. See [PAYOUT-BENCHMARK.md](PAYOUT-BENCHMARK.md).
+The SDK does not expose a custom LP discount. Version 0.8.1 expressly describes the X Money route as zero-spread oracle pricing bound at the buyer intent signal; an earlier estimate is approximate, and neither estimate nor intent proves that fiat arrived. [Payday's public payout documentation](https://payday.direct/explore#docs/payouts), observed November 11, 2026, describes historical discounts for Payday's own product. That competitor claim is not a Funded quote and is not the current Peer SDK pricing contract. Peer's referral code pays the code owner 50 bps out of Peer's fee when liquidity fills and does not change the recipient's rate. See [PAYOUT-BENCHMARK.md](PAYOUT-BENCHMARK.md).
 
 The owner supplied direct replies from a Peer representative, Telegram `sachin0x`, on November 11, 2026. The representative said Funded can integrate with the SDK without partner approval, that the creator will see the matched buyer as sender, and that `fundedonfloat` can appear in the X Money payment notes. These messages were not independently retrieved here. They resolve the integration-approval and sender-presentation questions, but they do not prove recipient eligibility, live order economics, or actual USD delivery.
 
@@ -214,7 +215,7 @@ The owner supplied direct replies from a Peer representative, Telegram `sachin0x
 These remain unresolved. The product must keep working safely before either is answered.
 
 1. Can the whole flow be tested end to end in preproduction, including a check that the USD arrived?
-2. What buyer discount, minimum, expiry, and return behavior apply to a production order?
+2. What observed X Money liquidity, fill time, expiry, and return behavior apply in preproduction and production?
 
 The creator-facing copy has to say that the matched buyer is the sender. `@fundedonfloat` is Funded's public handle and can appear in the payment notes, but it is not the sender or payee. The payee is the creator's handle.
 
@@ -236,7 +237,7 @@ The creator-facing copy has to say that the matched buyer is the sender. `@funde
 
 **Peer.** The public SDK is the integration, and the owner-supplied reply says no separate partner approval is required. Live or preproduction orders still need the owner's explicit authorization, a Base USDC balance that is not in this repo, and answers to the two questions above before a payout can be described as tested. X Money eligibility is not checked by the SDK.
 
-**Owner.** Choose the custody model and supply only the public receiver address. Authorize any future devnet or mainnet write. Decide whether the creator's wallet signs the launch (recommended) or a Funded wallet launches on the creator's behalf. Decide whether any LP incentive will be funded separately, because the SDK's spread is zero and it has no discount field. Counsel has to review money transmission, sanctions, X Money terms, and tokenized-stock restrictions before a public launch that handles customer funds.
+**Owner.** Choose the custody model and supply only the public receiver address. Authorize any future devnet or mainnet write. Decide whether the creator's wallet signs the launch (recommended) or a Funded wallet launches on the creator's behalf. Use the provider's documented zero-spread intent-bound rate unless a separately disclosed incentive is deliberately funded. Counsel has to review money transmission, sanctions, X Money terms, and tokenized-stock restrictions before a public launch that handles customer funds.
 
 ## What this repository will not do with these findings
 

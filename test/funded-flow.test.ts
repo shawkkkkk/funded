@@ -73,7 +73,7 @@ test('creator share is 5% of the Float fee, with dust excluded', () => {
   assert.equal(splitFloatFee(1n).dust, 1n);
   const view = disclose({ quoteUnits: 10_000n, convertedUsdc: null, bridgeFeeUsdc: null, deliveredUsdMicros: 1_000_000n, pendingUsdc: 1n, fiatVerified: true });
   assert.equal(view.paymentComplete, false);
-  assert.equal(view.lpDiscountBps, null);
+  assert.equal(view.lpDiscountBps, 0);
   assert.equal(view.deliveredUsdMicros, '0');
 });
 
@@ -173,7 +173,7 @@ test('preview and pages stay unsigned, and the schema names the payout tables', 
     assert.equal(status.paymentNoteBranding, '@fundedonfloat');
     assert.equal(status.partnerApprovalRequired, false);
     assert.equal(status.openQuestions.length, 2);
-    assert.equal(status.peer.marketDiscountBps, null);
+    assert.equal(status.peer.marketDiscountBps, 0);
     assert.equal(status.peer.claimlessEligibility, 'unverified');
     assert.equal(status.payoutReadiness.status, 'blocked_recipient');
     assert.equal(status.payoutReadiness.claimRequired, false);

@@ -16,12 +16,19 @@
     "review:float-fee": "node src/float-fee-review.ts",
     "discover:float": "node src/float-history.ts",
     "intake:float": "node src/float-intake.ts",
-    "preflight": "node src/preflight.ts"
+    "preflight": "node src/preflight.ts",
+    "mainnet:check": "node src/mainnet-readiness.ts"
   },
   "dependencies": {
-    "@solana/web3.js": "^1.98.4",
-    "@zkp2p/cash": "^0.7.3",
-    "pg": "^8.16.3",
-    "viem": "^2.37.3"
+    "@solana/web3.js": "1.99.0",
+    "@zkp2p/cash": "0.8.1",
+    "pg": "8.16.3",
+    "viem": "2.57.18"
+  },
+  "overrides": {
+    "jayson": {
+      "stream-json": "3.9.0",
+      "uuid": "11.1.1"
+    }
   }
 }

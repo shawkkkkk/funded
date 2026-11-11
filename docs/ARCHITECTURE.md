@@ -11,7 +11,7 @@ The verified protocol facts are in [INVESTIGATION.md](./INVESTIGATION.md). This 
 | Language | TypeScript on Node 24 | Already the repo. The owner prefers it. |
 | HTTP and pages | The existing Node server, responsive HTML, and CSS | The draft flow, same-origin checks, and payout journal are tested here. |
 | Solana | `@solana/web3.js` for PDA derivation and instruction data | The launch account list was checked against a finalized transaction. |
-| Peer | `@zkp2p/cash` 0.7.3 | Public SDK. The owner-supplied Peer reply says no separate partner approval is required. Order methods stay unreachable. |
+| Peer | `@zkp2p/cash` 0.8.1 | Public SDK. The owner-supplied Peer reply says no separate partner approval is required. Order methods stay unreachable. |
 | Production database | PostgreSQL | Durable payouts, unique source locators, and worker leases need it. The schema is `db/postgres.sql`. |
 | Local database | SQLite through `node:sqlite` | Zero-credential draft mode already works. It is not the production ledger. |
 | Jobs | A leased outbox in the same database | Restart, duplicate delivery, and pause have to survive a process crash. |
@@ -144,7 +144,7 @@ Shown per batch, in integers:
 - conversion units in and USDC out, or "pending, no safe route"
 - bridge fee and net Base USDC, or "not bridged"
 - Peer protocol spread: 0 bps in the reviewed SDK capability metadata
-- Marketplace buyer discount: unknown until a live quote/order supplies it; never infer it from the SDK spread or default it to zero
+- Peer rate: zero-spread Base oracle market rate, bound at the buyer intent signal; pre-intent estimates are approximate
 - USD micros delivered, only after `fiat_proven`
 - amount still pending
 

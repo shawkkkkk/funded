@@ -4,11 +4,11 @@ import { IntegrationBlocked } from './policy.ts';
 
 export const SENDER_NOTICE = 'A matched buyer sends the dollars through X Money and appears as the sender. Funded can be identified as @fundedonfloat in the X Money payment notes, not as the sender.';
 export const CLAIMLESS_NOTICE = 'Funded has no withdrawal or claim balance. Claimless X Money delivery is available only after the recipient and production payout route are verified; otherwise Base USDC stays held and no payout is labeled complete.';
-export const MARKETPLACE_NOTICE = 'The installed Peer SDK reports zero protocol spread, but that does not establish the buyer discount, fill price, timing, or production availability of a live marketplace order.';
+export const MARKETPLACE_NOTICE = 'Peer Cash 0.8.1 reports a zero-spread oracle market rate that binds when a buyer submits intent. The estimate remains approximate, and Funded has not yet verified X Money fill timing, liquidity, or actual USD receipt end to end.';
 
 export const OPEN_QUESTIONS = Object.freeze([
   'Can the whole flow be tested end to end in preproduction, including proof the USD arrived?',
-  'What buyer discount, minimum, expiry, and return behavior apply to a production order?'
+  'What observed X Money liquidity, fill time, expiry, and return behavior apply in preproduction and production?'
 ]);
 
 export function xmoneyReceive(payee: string) {
@@ -23,13 +23,15 @@ export function localSdkFacts() {
     throw Error('Installed Peer SDK does not match the reviewed X Money USD surface');
   }
   return {
-    package: '@zkp2p/cash@0.7.3',
+    package: '@zkp2p/cash@0.8.1',
+    xMoneyUsd: true as const,
+    xMoneyPricingKind: xmoney.pricing.USD.kind,
     pricingKind: caps.pricing.kind,
     spreadBps: caps.pricing.spreadBps,
     minBaseUnits: caps.amount.min.toString(),
     recommendedMinBaseUnits: caps.amount.recommendedMin.toString(),
     maxBaseUnits: caps.amount.max === null ? null : caps.amount.max.toString(),
-    marketDiscountBps: null,
+    marketDiscountBps: 0,
     ordersEnabled: false,
     usdArrivalVerified: false,
     claimlessEligibility: 'unverified' as const,
@@ -40,7 +42,7 @@ export function localSdkFacts() {
 }
 
 export function livePeerOrder(): never {
-  throw new IntegrationBlocked('Peer orders stay disabled. Public SDK access is not approval to deposit USDC or to call a payment complete.');
+  throw new IntegrationBlocked('Peer orders stay disabled until custody, signer policy, live screening, recipient eligibility, and controlled end-to-end USD receipt testing are complete.');
 }
 
 type Order = {
