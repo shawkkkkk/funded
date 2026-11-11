@@ -11,7 +11,7 @@ The verified protocol facts are in [INVESTIGATION.md](./INVESTIGATION.md). This 
 | Language | TypeScript on Node 24 | Already the repo. The owner prefers it. |
 | HTTP and pages | The existing Node server, responsive HTML, and CSS | The draft flow, same-origin checks, and payout journal are tested here. |
 | Solana | `@solana/web3.js` for PDA derivation and instruction data | The launch account list was checked against a finalized transaction. |
-| Peer | `@zkp2p/cash` 0.7.3 | Public SDK. No private partnership is assumed. Order methods stay unreachable. |
+| Peer | `@zkp2p/cash` 0.7.3 | Public SDK. The owner-supplied Peer reply says no separate partner approval is required. Order methods stay unreachable. |
 | Production database | PostgreSQL | Durable payouts, unique source locators, and worker leases need it. The schema is `db/postgres.sql`. |
 | Local database | SQLite through `node:sqlite` | Zero-credential draft mode already works. It is not the production ledger. |
 | Jobs | A leased outbox in the same database | Restart, duplicate delivery, and pause have to survive a process crash. |
@@ -94,9 +94,9 @@ The adapter speaks the public SDK:
 - `prepare` / `cashout` / `withdraw` / `topUp` are coded as a blocked port, not called
 - `order` is the only status source, and a fixture implements it in tests
 
-Deposit confirmation moves a batch to `awaiting_buyer`. It is not `paid`. A fill counts only when `fiat_proven` carries a payment id, USDC consumed, and USD micros inside the order's economics. Partial fills stay `partially_paid` until the escrow is zero. `withdraw` of the full remainder returns the batch to Base USDC for another attempt. An expired intent records `intent_expired` and moves no funds. The creator-facing notice states that the sender may be the liquidity provider. Whether that sender can instead be @fundedonfloat is an open product question, not a field we set.
+Deposit confirmation moves a batch to `awaiting_buyer`. It is not `paid`. A fill counts only when `fiat_proven` carries a payment id, USDC consumed, and USD micros inside the order's economics. Partial fills stay `partially_paid` until the escrow is zero. `withdraw` of the full remainder returns the batch to Base USDC for another attempt. An expired intent records `intent_expired` and moves no funds. Based on the owner-supplied Peer reply, the matched buyer appears as the X Money sender and `@fundedonfloat` can appear in the payment notes. Funded does not present itself as the sender.
 
-Cash App and Venmo remain visible as disabled planned rails in the draft form. They are not enabled for live payout. X Money is the first rail to test, after recipient eligibility, production access, custody, and a preproduction wallet are approved. If a gate fails, funds stay held as Base USDC; Funded does not create a creator-facing recovery wallet or claim balance.
+Cash App and Venmo remain visible as disabled planned rails in the draft form. They are not enabled for live payout. X Money is the first rail to test, after recipient eligibility, SDK integration, custody, and a controlled test wallet are ready. If a gate fails, funds stay held as Base USDC; Funded does not create a creator-facing recovery wallet or claim balance.
 
 ## Payout state
 
@@ -192,10 +192,10 @@ A local fixture, a quote, or a successful unit test is not that review.
 1. **Custody.** Options are Funded-held receiver, qualified custodian, or Funded-signed launches. Recommendation: creator-signed launches and a Funded-held receiver under an approved custody arrangement. Supply the public address only.
 2. **LP incentive.** Options are the SDK's zero spread, or a separately funded discount with its own accounting. Recommendation: zero spread, fully disclosed, until Peer answers the fill-time question. Do not copy BagsPay's 10/20 percent.
 3. **UI shell.** Options are to stay on this server or rewrite in Next.js now. Recommendation: stay, and add Next.js only as a client of this API.
-4. **Peer testing.** Options wait on Peer. Recommendation: keep both sender displays possible, tell creators a third party may be the sender, and do not run preproduction until the owner authorizes a funded wallet.
+4. **Peer testing.** Recommendation: disclose the matched buyer as sender and `@fundedonfloat` as payment-note identity, and do not run a controlled test until the owner authorizes a funded wallet.
 
 ## Still blocked on someone else
 
 - Owner: public receiver address, custody approval, any live or devnet signature, counsel.
 - Float: enabling a quote that is not already listed; they can also pause or upgrade without notice.
-- Peer: the three open questions in the investigation. The SDK integration does not wait on them. A real payout does.
+- Peer: the two open questions in the investigation. The SDK integration does not wait on them. A real payout does.

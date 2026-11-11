@@ -2,14 +2,12 @@ import { createCashClient } from '@zkp2p/cash';
 import { handle } from './domain.ts';
 import { IntegrationBlocked } from './policy.ts';
 
-export const SENDER_NOTICE = 'A matched liquidity provider sends the dollars through X Money. The sender you see may be that provider. It is not confirmed whether a payment can display as @fundedonfloat.';
+export const SENDER_NOTICE = 'A matched buyer sends the dollars through X Money and appears as the sender. Funded can be identified as @fundedonfloat in the X Money payment notes, not as the sender.';
 export const CLAIMLESS_NOTICE = 'Funded has no withdrawal or claim balance. Claimless X Money delivery is available only after the recipient and production payout route are verified; otherwise Base USDC stays held and no payout is labeled complete.';
 export const MARKETPLACE_NOTICE = 'The installed Peer SDK reports zero protocol spread, but that does not establish the buyer discount, fill price, timing, or production availability of a live marketplace order.';
 
 export const OPEN_QUESTIONS = Object.freeze([
   'Can the whole flow be tested end to end in preproduction, including proof the USD arrived?',
-  'Do live payouts need partner approval from Peer, or a separate approval from X Money?',
-  'Does the creator see the matched liquidity provider as the X Money sender, or can the payment display as @fundedonfloat?',
   'What buyer discount, minimum, expiry, and return behavior apply to a production order?'
 ]);
 
@@ -35,7 +33,9 @@ export function localSdkFacts() {
     ordersEnabled: false,
     usdArrivalVerified: false,
     claimlessEligibility: 'unverified' as const,
-    senderDisplay: 'unresolved' as const
+    partnerApprovalRequired: false as const,
+    senderDisplay: 'matched_buyer' as const,
+    paymentNoteBranding: '@fundedonfloat' as const
   };
 }
 

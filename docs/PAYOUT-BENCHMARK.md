@@ -23,14 +23,14 @@ These are Payday's published product claims. Funded has not reproduced its trans
 | Can creator fees fund an X Money marketplace order? | A public competitor documents that design. | Keep Peer as the first rail to validate. This is supporting evidence, not Funded's approval. |
 | Does the SDK's zero spread prove recipient economics? | No. A marketplace can still use a buyer discount. | Represent live discount as unknown until a quote/order supplies it. |
 | Is “no claim” universal? | No. It depends on recipient eligibility and successful delivery. | Verify recipient eligibility before routing. Hold Base USDC if blocked; do not create a public claim balance. |
-| Can Funded promise to appear as sender? | No. The matched buyer may be visible. | Keep sender display unresolved until Peer confirms branded sending. |
+| Who appears as sender? | Payday documents the marketplace buyer; the owner-supplied Peer reply confirms the matched buyer for Funded. | Disclose the matched buyer as sender and identify `@fundedonfloat` only in payment notes. |
 | Is delivery immediate or guaranteed? | No. Orders depend on buyer liquidity. | Persist awaiting, partial, returned, and paid as separate states. |
 
 ## Acceptance gates
 
 Before enabling production orders, require all of the following:
 
-1. Peer confirms permitted production use, preproduction access, supported business model, and any separate X Money approval.
+1. Configure the public Peer SDK. The owner-supplied Peer reply says no separate partner approval is required; business, legal, and X Money eligibility checks remain separate gates.
 2. A controlled test verifies payee ownership/consent, recipient eligibility, accepted order, partial/full fill evidence, return behavior, and actual USD receipt.
 3. Live minimum, discount, expiry, fees, and sender presentation are returned by a trusted provider response or contract state and stored with the order.
 4. Custody and signing are approved, segregated, capped, monitored, and independently reconciled.

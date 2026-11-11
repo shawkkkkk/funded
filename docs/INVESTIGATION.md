@@ -205,20 +205,18 @@ Raw handles are trimmed, lowercased, and stripped of one leading `@`. Registrati
 
 The SDK does not expose a custom LP discount. A zero SDK spread is not proof that a live marketplace order has no buyer discount. [Payday's public payout documentation](https://payday.direct/explore#docs/payouts), observed November 11, 2026, describes roughly 10% buyer discounting and roughly 20% after one day for its own Peer orders. That is competitor product documentation, not a Funded quote or a Peer SDK parameter. Copying either price would misstate Funded's economics. Peer's referral code pays the code owner 50 bps out of Peer's fee when liquidity fills. It does not establish or change the recipient's live rate. See [PAYOUT-BENCHMARK.md](PAYOUT-BENCHMARK.md).
 
-The owner reports that a Peer developer, Telegram `sachin0x`, replied "pls use our sdk, feel free to ping on tg". That message was not independently retrieved here. It is consistent with the public SDK and is not a partnership, a limit increase, or approval to move funds.
+The owner supplied direct replies from a Peer representative, Telegram `sachin0x`, on November 11, 2026. The representative said Funded can integrate with the SDK without partner approval, that the creator will see the matched buyer as sender, and that `fundedonfloat` can appear in the X Money payment notes. These messages were not independently retrieved here. They resolve the integration-approval and sender-presentation questions, but they do not prove recipient eligibility, live order economics, or actual USD delivery.
 
 [Peer's Solana contracts](https://github.com/zkp2p/zkp2p-solana-contracts) are a different codebase. They are not evidence that an X Money cash-out settles on Solana.
 
 ### Open questions for Peer
 
-These are unresolved. The product must keep working if either answer is true.
+These remain unresolved. The product must keep working safely before either is answered.
 
 1. Can the whole flow be tested end to end in preproduction, including a check that the USD arrived?
-2. Do live payouts need partner approval from Peer, or a separate approval from X Money?
-3. Does the creator see the matched liquidity provider as the X Money sender, or can the payment display as @fundedonfloat?
-4. What buyer discount, minimum, expiry, and return behavior apply to a production order?
+2. What buyer discount, minimum, expiry, and return behavior apply to a production order?
 
-The creator-facing copy has to say that a third-party liquidity provider may be the sender. @fundedonfloat is Funded's public handle. It is not a confirmed payment sender, and it is not the payee. The payee is the creator's handle.
+The creator-facing copy has to say that the matched buyer is the sender. `@fundedonfloat` is Funded's public handle and can appear in the payment notes, but it is not the sender or payee. The payee is the creator's handle.
 
 ## Assumptions
 
@@ -236,7 +234,7 @@ The creator-facing copy has to say that a third-party liquidity provider may be 
 
 **Float, only for some operational edges.** Calling `launch` and `claim_dev_fees` does not need their permission while launches are unpaused and the program still has this interface. Their lister key is required to enable a new quote mint. Their admin can pause launches, change the split, or upgrade the program. A stable, versioned IDL and a statement of which LaunchLab program is current would remove the bundle-versus-chain discrepancy. Permission to use Float's name or mark is a brand question; Funded does not use them as its own mark.
 
-**Peer.** The public SDK is the integration. No private partnership is assumed. Live or preproduction orders still need the owner's explicit authorization, a Base USDC balance that is not in this repo, and answers to the four questions above before a payout can be described as tested. X Money eligibility is not checked by the SDK.
+**Peer.** The public SDK is the integration, and the owner-supplied reply says no separate partner approval is required. Live or preproduction orders still need the owner's explicit authorization, a Base USDC balance that is not in this repo, and answers to the two questions above before a payout can be described as tested. X Money eligibility is not checked by the SDK.
 
 **Owner.** Choose the custody model and supply only the public receiver address. Authorize any future devnet or mainnet write. Decide whether the creator's wallet signs the launch (recommended) or a Funded wallet launches on the creator's behalf. Decide whether any LP incentive will be funded separately, because the SDK's spread is zero and it has no discount field. Counsel has to review money transmission, sanctions, X Money terms, and tokenized-stock restrictions before a public launch that handles customer funds.
 

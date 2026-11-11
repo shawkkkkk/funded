@@ -82,8 +82,10 @@ test('Peer fixture does partial, full, refund, and duplicate flows without submi
   const facts = localSdkFacts();
   assert.equal(facts.ordersEnabled, false);
   assert.equal(facts.spreadBps, 0);
-  assert.equal(facts.senderDisplay, 'unresolved');
-  assert.equal(OPEN_QUESTIONS.length, 4);
+  assert.equal(facts.senderDisplay, 'matched_buyer');
+  assert.equal(facts.partnerApprovalRequired, false);
+  assert.equal(facts.paymentNoteBranding, '@fundedonfloat');
+  assert.equal(OPEN_QUESTIONS.length, 2);
   assert.deepEqual(xmoneyReceive('@Creator'), { platform: 'xmoney', currency: 'USD', payee: '@creator' });
   const cash = new FixtureCash();
   const first = cash.deposit('fixture:order-1', 2_000_000n, '@Creator');
@@ -167,8 +169,10 @@ test('preview and pages stay unsigned, and the schema names the payout tables', 
     const status = await (await fetch(origin + '/api/status')).json();
     assert.equal(status.launchEnabled, false);
     assert.equal(status.peerOrdersEnabled, false);
-    assert.equal(status.senderDisplay, 'unresolved');
-    assert.equal(status.openQuestions.length, 4);
+    assert.equal(status.senderDisplay, 'matched_buyer');
+    assert.equal(status.paymentNoteBranding, '@fundedonfloat');
+    assert.equal(status.partnerApprovalRequired, false);
+    assert.equal(status.openQuestions.length, 2);
     assert.equal(status.peer.marketDiscountBps, null);
     assert.equal(status.peer.claimlessEligibility, 'unverified');
     assert.equal(status.payoutReadiness.status, 'blocked_recipient');

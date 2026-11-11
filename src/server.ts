@@ -61,10 +61,10 @@ export function app(store: Store, reader?: SolanaReader, ledger?: PgLedger) {
       }
       if (req.method === 'GET' && path === '/api/status') {
         const peer = localSdkFacts();
-        const readiness = payoutReadiness({rail:'xmoney',xMoneyEligibility:peer.claimlessEligibility,partnerApproved:false,baseUsdcUnits:0n,minimumBaseUsdcUnits:BigInt(peer.minBaseUnits)});
+        const readiness = payoutReadiness({rail:'xmoney',xMoneyEligibility:peer.claimlessEligibility,integrationReady:false,baseUsdcUnits:0n,minimumBaseUsdcUnits:BigInt(peer.minBaseUnits)});
         const config = loadConfig();
         const paused = ledger ? await ledger.pauseReason() : store.pauseReason();
-        return json(200,{mode:'local_draft_only',product:'Funded',launchEnabled:false,payoutEnabled:false,peerOrdersEnabled:false,launchSigner:config.launchSigner,custody:config.custody,pricing:config.pricing,database:ledger?'postgres':'sqlite',rpcConfigured:!!reader,paused:paused??null,senderDisplay:'unresolved',senderNotice:SENDER_NOTICE,claimlessNotice:CLAIMLESS_NOTICE,marketplaceNotice:MARKETPLACE_NOTICE,payoutReadiness:readiness,openQuestions:OPEN_QUESTIONS,peer:{spreadBps:peer.spreadBps,marketDiscountBps:null,minBaseUnits:peer.minBaseUnits,ordersEnabled:false,claimlessEligibility:'unverified'}});
+        return json(200,{mode:'local_draft_only',product:'Funded',launchEnabled:false,payoutEnabled:false,peerOrdersEnabled:false,launchSigner:config.launchSigner,custody:config.custody,pricing:config.pricing,database:ledger?'postgres':'sqlite',rpcConfigured:!!reader,paused:paused??null,senderDisplay:peer.senderDisplay,paymentNoteBranding:peer.paymentNoteBranding,partnerApprovalRequired:peer.partnerApprovalRequired,senderNotice:SENDER_NOTICE,claimlessNotice:CLAIMLESS_NOTICE,marketplaceNotice:MARKETPLACE_NOTICE,payoutReadiness:readiness,openQuestions:OPEN_QUESTIONS,peer:{spreadBps:peer.spreadBps,marketDiscountBps:null,minBaseUnits:peer.minBaseUnits,ordersEnabled:false,claimlessEligibility:'unverified',partnerApprovalRequired:false,senderDisplay:peer.senderDisplay,paymentNoteBranding:peer.paymentNoteBranding}});
       }
       if (req.method === 'GET' && path === '/api/alerts') {
         let unbalanced = false;
@@ -92,7 +92,7 @@ export function app(store: Store, reader?: SolanaReader, ledger?: PgLedger) {
       }
       if (req.method === 'GET' && path === '/api/liquidity') {
         const items = ledger ? await ledger.liquidityActivity() : [];
-        return json(200,{items,senderNotice:SENDER_NOTICE,marketplaceNotice:MARKETPLACE_NOTICE,spreadBps:0,marketDiscountBps:null,ordersEnabled:false,senderDisplay:'unresolved'});
+        return json(200,{items,senderNotice:SENDER_NOTICE,marketplaceNotice:MARKETPLACE_NOTICE,spreadBps:0,marketDiscountBps:null,ordersEnabled:false,partnerApprovalRequired:false,senderDisplay:'matched_buyer',paymentNoteBranding:'@fundedonfloat'});
       }
       if (req.method === 'GET' && path === '/api/payouts') {
         const rows = ledger ? await ledger.publicBatches() : store.publicBatches();

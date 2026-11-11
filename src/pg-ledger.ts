@@ -202,7 +202,7 @@ export class PgLedger {
       WHERE o.kind='peer_plan' ORDER BY o.created_at DESC LIMIT 100`);
     return rows.rows.map(row => ({
       batchId: row.batch_id, mint: row.mint, status: row.status, asset: row.asset, units: row.units, paidUsd: row.paid_usd,
-      decision: row.payload?.decision ?? null, ordersEnabled: false, spreadBps: 0, senderDisplay: 'unresolved' as const
+      decision: row.payload?.decision ?? null, ordersEnabled: false, spreadBps: 0, senderDisplay: 'matched_buyer' as const
     }));
   }
   async creatorBatches(creatorHandle: string) {

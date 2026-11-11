@@ -113,13 +113,15 @@ test('postgres ledger, outbox, and planning pipeline', { skip: url ? false : 'FU
       assert.equal(payouts.items.length, 2);
       assert.equal(payouts.items[0].cost.lpDiscountBps, null);
       assert.equal(payouts.items[0].cost.paymentComplete, false);
-      assert.match(payouts.senderNotice, /liquidity provider/);
+      assert.match(payouts.senderNotice, /matched buyer/);
       const earnings = await (await fetch(origin + '/api/earnings?handle=creator')).json();
       assert.equal(earnings.items.length, 2);
       assert.equal(earnings.paymentComplete, false);
       const liquidity = await (await fetch(origin + '/api/liquidity')).json();
       assert.equal(liquidity.ordersEnabled, false);
-      assert.equal(liquidity.senderDisplay, 'unresolved');
+      assert.equal(liquidity.senderDisplay, 'matched_buyer');
+      assert.equal(liquidity.paymentNoteBranding, '@fundedonfloat');
+      assert.equal(liquidity.partnerApprovalRequired, false);
       assert.ok(liquidity.items.length >= 1);
     } finally { await new Promise(resolve => server.close(resolve)); }
   } finally { await ledger.close(); }

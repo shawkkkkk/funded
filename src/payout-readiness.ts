@@ -5,7 +5,8 @@ export type PayoutReadinessStatus =
   | 'ready'
   | 'accumulating'
   | 'blocked_recipient'
-  | 'blocked_partner';
+  | 'blocked_integration'
+  | 'blocked_rail';
 
 export type PayoutReadiness = {
   status: PayoutReadinessStatus;
@@ -21,7 +22,7 @@ export type PayoutReadiness = {
 export function payoutReadiness(input: {
   rail: PayoutRail;
   xMoneyEligibility: XMoneyEligibility;
-  partnerApproved: boolean;
+  integrationReady: boolean;
   baseUsdcUnits: bigint;
   minimumBaseUsdcUnits: bigint;
 }): PayoutReadiness {
@@ -29,7 +30,7 @@ export function payoutReadiness(input: {
   const held = { claimRequired: false as const, fallback: 'hold_base_usdc' as const };
 
   if (input.rail !== 'xmoney') {
-    return { ...held, status: 'blocked_partner', reason: `${input.rail} payouts are not approved` };
+    return { ...held, status: 'blocked_rail', reason: `${input.rail} payouts are not enabled` };
   }
   if (input.xMoneyEligibility !== 'eligible') {
     return {
@@ -40,8 +41,8 @@ export function payoutReadiness(input: {
         : 'Recipient X Money eligibility has not been verified'
     };
   }
-  if (!input.partnerApproved) {
-    return { ...held, status: 'blocked_partner', reason: 'Peer production access is not approved' };
+  if (!input.integrationReady) {
+    return { ...held, status: 'blocked_integration', reason: 'Peer SDK payout flow is not configured and tested end to end' };
   }
   if (input.baseUsdcUnits < input.minimumBaseUsdcUnits) {
     return { ...held, status: 'accumulating', reason: 'Below the verified Peer order minimum' };
