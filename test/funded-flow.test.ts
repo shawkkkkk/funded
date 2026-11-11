@@ -165,7 +165,7 @@ test('preview and pages stay unsigned, and the schema names the payout tables', 
     const html = await page.text();
     assert.match(html, /FUNDED/);
     assert.match(html, /@fundedonfloat/);
-    assert.match(html, /liquidity provider/);
+    assert.match(html, /matched buyer/);
     const status = await (await fetch(origin + '/api/status')).json();
     assert.equal(status.launchEnabled, false);
     assert.equal(status.peerOrdersEnabled, false);
