@@ -23,6 +23,7 @@ Funded has not sent this transaction. Doing so needs the owner's explicit author
 - Peer Cash SDK `@zkp2p/cash@0.8.1` installed locally. `createCashClient` and `capabilities()` were called in-process. `estimate`, `prepare`, `finalizePreparedCashout`, `cashout`, `order`, `withdraw`, and `topUp` were not called.
 - Peer docs: [Peer Cash guide](https://docs.peer.xyz/developer/peer-cash/guide) and the [peer-cash repository](https://github.com/zkp2p/peer-cash).
 - BagsPay, used only as a comparison: [Pay Fees to X Money](https://docs.bags.fm/how-to-guides/pay-fees-to-x-money).
+- Backers, used only for its receipt-verification controls: [How Backers works](https://trybackers.com/docs#overview).
 
 ## Verified facts
 
@@ -205,6 +206,15 @@ Raw handles are trimmed, lowercased, and stripped of one leading `@`. Registrati
 `cashout` deposits Base USDC and registers a payee. The prepared path returns transactions to sign and submit, then requires the confirmed receipt to be passed to `finalizePreparedCashout`; the receipt and resulting deposit identity must be persisted before retrying. The deposit is not a USD payment. `order(depositId)` and its `nextActions` drive reads and recovery. Fills are reconciled on verified `fiatPaid`, `paidCurrency`, `paymentId`, `paidAt`, and `releasedAmount`. `withdraw` returns unspent USDC after pruning expired intents; a live intent blocks a full close. `topUp` adds USDC without changing the payee. Partial withdrawal is supported. `ORDER_NOT_FOUND` right after a deposit means the indexer is behind, not that the deposit should be created again.
 
 The SDK does not expose a custom LP discount. Version 0.8.1 expressly describes the X Money route as zero-spread oracle pricing bound at the buyer intent signal; an earlier estimate is approximate, and neither estimate nor intent proves that fiat arrived. [Payday's public payout documentation](https://payday.direct/explore#docs/payouts), observed November 11, 2026, describes historical discounts for Payday's own product. That competitor claim is not a Funded quote and is not the current Peer SDK pricing contract. Peer's referral code pays the code owner 50 bps out of Peer's fee when liquidity fills and does not change the recipient's rate. See [PAYOUT-BENCHMARK.md](PAYOUT-BENCHMARK.md).
+
+Backers' public guide, reviewed November 11, 2026, describes an X Money
+receipt-link flow for reimbursing a sender from a SOL fee pool. Its bonus,
+ten-minute hold, strike system and reimbursement economics are not Funded's
+model. The useful evidence pattern is one obligation per payment, exact
+currency/recipient/amount/time/status matching, payment-id replay prevention,
+private receipt handling and separate pending/manual-review outcomes. Funded's
+receipt guard adapts those checks to the fields Peer exposes and does not accept
+user-submitted receipt URLs.
 
 The owner supplied direct replies from a Peer representative, Telegram `sachin0x`, on November 11, 2026. The representative said Funded can integrate with the SDK without partner approval, that the creator will see the matched buyer as sender, and that `fundedonfloat` can appear in the X Money payment notes. These messages were not independently retrieved here. They resolve the integration-approval and sender-presentation questions, but they do not prove recipient eligibility, live order economics, or actual USD delivery.
 

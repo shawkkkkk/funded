@@ -1,6 +1,7 @@
 import { createCashClient } from '@zkp2p/cash';
 import { handle } from './domain.ts';
 import { IntegrationBlocked } from './policy.ts';
+import { XMONEY_RECEIPT_CONTROLS } from './xmoney-receipt.ts';
 
 export const SENDER_NOTICE = 'A matched buyer sends the dollars through X Money and appears as the sender. Funded can be identified as @fundedonfloat in the X Money payment notes, not as the sender.';
 export const CLAIMLESS_NOTICE = 'Funded has no withdrawal or claim balance. Claimless X Money delivery is available only after the recipient and production payout route are verified; otherwise Base USDC stays held and no payout is labeled complete.';
@@ -37,7 +38,8 @@ export function localSdkFacts() {
     claimlessEligibility: 'unverified' as const,
     partnerApprovalRequired: false as const,
     senderDisplay: 'matched_buyer' as const,
-    paymentNoteBranding: '@fundedonfloat' as const
+    paymentNoteBranding: '@fundedonfloat' as const,
+    receiptControls: XMONEY_RECEIPT_CONTROLS
   };
 }
 

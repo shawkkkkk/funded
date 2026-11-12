@@ -142,6 +142,9 @@ test('job leases fence out a stale worker', () => {
 test('preview and pages stay unsigned, and the schema names the payout tables', async () => {
   const schema = await readFile(new URL('../db/postgres.sql', import.meta.url), 'utf8');
   for (const table of ['launches', 'receipts', 'journal', 'peer_orders', 'fills', 'jobs', 'pauses']) assert.match(schema, new RegExp('CREATE TABLE ' + table));
+  const receiptSchema = await readFile(new URL('../db/migrations/003_xmoney_receipts.sql', import.meta.url), 'utf8');
+  for (const table of ['xmoney_receipt_bindings', 'xmoney_receipt_references']) assert.match(receiptSchema, new RegExp('CREATE TABLE ' + table));
+  assert.doesNotMatch(receiptSchema, /payment_id|receipt_url/);
   const store = new Store(':memory:');
   const reader = new SolanaReader(['https://ok.example'], async () => Response.json({ id: 1, result: { value: { data: [configFixture().toString('base64'), 'base64'], owner: '3KguFi7YYzLgttG46fRism16CfcuNCkDh6U7td9JTqxX' } } }));
   const body = { name: 'José', ticker: 'solminer', description: '', pair: 'native:sol', feeBps: 100, recipient: '@creator', payoutRail: 'xmoney', firstBuyBaseUnits: '0', creatorWallet: creator, website: '', x: '', telegram: '', metadataUri: 'https://example.com/coin.json', mintNonce: '4' };
