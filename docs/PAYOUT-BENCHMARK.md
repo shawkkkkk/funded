@@ -37,3 +37,31 @@ Before enabling production orders, require all of the following:
 5. The public UI labels anything short of verified fiat evidence as pending—not paid.
 
 Funded deliberately does not copy Payday's recovery-wallet claim flow. An ineligible or blocked recipient remains a held Base USDC exception until an operator-approved automatic rail is available.
+
+## Backers receipt controls
+
+[Backers' public guide](https://trybackers.com/docs#overview), reviewed November
+11, 2026, documents a different product: a backer first pays a named recipient
+through X Money, then submits the X Money receipt so a Solana pool can reimburse
+the backer with a bonus. Funded does not adopt that rebate, bonus, SOL pool,
+ten-minute hold, strike, or user-submitted receipt-link model.
+
+The reusable control pattern is receipt binding. Backers documents one payment
+per hold, sender/recipient/amount/currency/time/status checks, rejection of reused
+payments, encrypted receipt handling, and explicit pending/manual-review states.
+Funded adapts those controls to Peer orders in `src/xmoney-receipt.ts`:
+
+- bind one reviewed plan to the persisted Peer `depositId`, on-chain payee hash,
+  and exact Base-USDC amount;
+- require exactly one X Money/USD payout leg and only fulfilled fills;
+- require each payment time to fall inside that fill's provider-reported intent
+  window and require released Base USDC to match the fill amount;
+- derive a keyed HMAC reference from each external payment id for replay checks;
+  do not return or persist raw receipt links or payment ids in the receipt view;
+- admit a verified result through `003_xmoney_receipts.sql`, whose globally
+  unique keyed references preserve replay protection across process restarts;
+- keep public verification and live execution disabled.
+
+Peer still performs the underlying payment-proof verification. Funded's binding
+does not independently authenticate X Money, prove the recipient owns the X
+account, or replace the preproduction USD-arrival test.

@@ -96,6 +96,16 @@ The adapter speaks the public SDK:
 
 Deposit confirmation moves a batch to `awaiting_buyer`. It is not `paid`. A fill counts only when `fiat_proven` carries a payment id, USDC consumed, and USD micros inside the order's economics. Partial fills stay `partially_paid` until the escrow is zero. `withdraw` of the full remainder returns the batch to Base USDC for another attempt. An expired intent records `intent_expired` and moves no funds. Based on the owner-supplied Peer reply, the matched buyer appears as the X Money sender and `@fundedonfloat` can appear in the payment notes. Funded does not present itself as the sender.
 
+Before a verified fill may reach the journal, the receipt guard binds the
+reviewed plan reference to one persisted Peer deposit, its on-chain X Money
+payee hash and the exact Base-USDC amount. Each fill must be fulfilled, release
+its exact amount, and carry a USD payment made inside the provider-reported
+intent window. External payment ids are converted to keyed HMAC references for
+global replay checks; raw payment ids and shareable receipt links are not
+returned by the guard. The HMAC key belongs in managed server storage and must
+not be reused as a wallet or provider credential. This is a local admission
+control over provider evidence, not independent X Money verification.
+
 Cash App and Venmo remain visible as disabled planned rails in the draft form. They are not enabled for live payout. X Money is the first rail to test, after recipient eligibility, SDK integration, custody, and a controlled test wallet are ready. If a gate fails, funds stay held as Base USDC; Funded does not create a creator-facing recovery wallet or claim balance.
 
 ## Payout state
@@ -157,6 +167,7 @@ No dollar price is invented for an illiquid quote.
 - RPC client allows only the existing read methods.
 - Preview cannot target a receiver other than the configured public address.
 - Peer payee changes do not alter an order id already stored.
+- Verified X Money results are admitted atomically against one batch; keyed receipt references are globally unique across restarts, while raw provider ids and receipt URLs are never stored.
 - Fixture order ids and consent ids cannot be mistaken for production ids; production execution throws.
 - Sanctions and denied-handle checks are not implemented because no screening vendor is connected. That blocks a live payout, not a fixture.
 - Tokenized-stock quotes can be frozen by their issuers. The holder of the receiver key bears that delay. The creator is told before launch.

@@ -1,7 +1,8 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { address, amount, handle, SOLANA_USDC } from './domain.ts';
+import { createXMoneyReceiptBinding, type BoundXMoneyReceipt, type XMoneyReceiptBinding } from './xmoney-receipt.ts';
 
 type Queryable = { query(text: string, values?: unknown[]): Promise<{ rows: any[]; rowCount: number | null }> };
 export type OutboxJob = {
@@ -9,7 +10,7 @@ export type OutboxJob = {
   payload: Record<string, unknown>; attempts: number; maxAttempts: number; fence: number;
 };
 
-const FILES = ['db/postgres.sql', 'db/migrations/002_pipeline.sql'];
+const FILES = ['db/postgres.sql', 'db/migrations/002_pipeline.sql', 'db/migrations/003_xmoney_receipts.sql'];
 function stable(value: unknown): string {
   if (Array.isArray(value)) return '[' + value.map(stable).join(',') + ']';
   if (value && typeof value === 'object') {
@@ -60,7 +61,7 @@ export class PgLedger {
     return applied;
   }
   async resetData() {
-    await this.pool.query('TRUNCATE creators, consents, launches, receipts, batches, batch_receipts, events, journal, peer_orders, fills, jobs, outbox, observations RESTART IDENTITY CASCADE');
+    await this.pool.query('TRUNCATE creators, consents, launches, receipts, batches, batch_receipts, events, journal, peer_orders, fills, jobs, outbox, observations, xmoney_receipt_references, xmoney_receipt_bindings RESTART IDENTITY CASCADE');
     await this.pool.query("UPDATE pauses SET paused=true, reason='default closed', at=now()");
   }
   async pause(reason: string) {
@@ -127,6 +128,62 @@ export class PgLedger {
       await db.query('INSERT INTO events(id, batch_id, kind, ref, fingerprint) VALUES($1,$2,$3,$4,$5)', [eventId, batchId, 'receipt', input.originRef, JSON.stringify([input.units, asset])]);
       await db.query('INSERT INTO journal(event_id, asset, account, delta) VALUES($1,$2,$3,$4),($1,$2,$5,$6)', [eventId, asset, 'external_fee_source', (-units).toString(), 'solana_held', units.toString()]);
       return { batchId, duplicate: false };
+    });
+  }
+  /** Admit a reconciled receipt without persisting provider ids or URLs. */
+  async admitVerifiedXMoneyReceipt(input: {
+    batchId: string;
+    binding: XMoneyReceiptBinding;
+    receipt: BoundXMoneyReceipt;
+  }) {
+    const expected = createXMoneyReceiptBinding(input.binding);
+    const receipt = input.receipt;
+    if (expected.bindingId !== input.binding.bindingId || receipt.bindingId !== input.binding.bindingId || receipt.depositId !== input.binding.depositId) {
+      throw Error('X Money receipt binding mismatch');
+    }
+    if (!receipt.verified || receipt.reasons.length !== 0 || receipt.rawReceiptStored !== false || receipt.state !== 'delivered') {
+      throw Error('Only verified X Money receipts can be admitted');
+    }
+    if (!Number.isFinite(receipt.paidUsd) || receipt.paidUsd <= 0 || Math.round(receipt.paidUsd * 100) !== receipt.paidUsd * 100) {
+      throw Error('Invalid X Money USD amount');
+    }
+    const released = amount(receipt.releasedBaseUsdcUnits);
+    if (released !== amount(input.binding.expectedBaseUsdcUnits)) throw Error('X Money released amount mismatch');
+    if (receipt.paymentCount < 1 || receipt.paymentCount !== receipt.receiptReferences.length || new Set(receipt.receiptReferences).size !== receipt.receiptReferences.length ||
+      receipt.receiptReferences.some(value => !/^xmoney_receipt_[0-9a-f]{64}$/.test(value))) {
+      throw Error('Invalid X Money receipt references');
+    }
+    const paidUsdCents = Math.round(receipt.paidUsd * 100);
+    const fingerprint = createHash('sha256').update(stable({
+      bindingId: receipt.bindingId,
+      depositId: receipt.depositId,
+      state: receipt.state,
+      paidUsdCents,
+      releasedBaseUsdcUnits: released.toString(),
+      receiptReferences: receipt.receiptReferences
+    })).digest('hex');
+
+    return this.tx(async db => {
+      const batch = await db.query('SELECT id FROM batches WHERE id=$1', [input.batchId]);
+      if (!batch.rows[0]) throw Error('Unknown payout batch');
+      const prior = await db.query('SELECT batch_id, result_fingerprint FROM xmoney_receipt_bindings WHERE binding_id=$1', [input.binding.bindingId]);
+      if (prior.rows[0]) {
+        if (prior.rows[0].batch_id !== input.batchId || prior.rows[0].result_fingerprint !== fingerprint) throw Error('Conflicting X Money receipt replay');
+        return { bindingId: input.binding.bindingId, duplicate: true };
+      }
+      const replay = await db.query('SELECT receipt_reference FROM xmoney_receipt_references WHERE receipt_reference = ANY($1::text[]) LIMIT 1', [receipt.receiptReferences]);
+      if (replay.rows[0]) throw Error('X Money receipt reference replay');
+      await db.query(`INSERT INTO xmoney_receipt_bindings
+        (binding_id, batch_id, plan_reference, deposit_id, payee_hash, expected_base_usdc_units, paid_usd_cents, released_base_usdc_units, receipt_count, result_fingerprint)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [
+        input.binding.bindingId, input.batchId, input.binding.planReference, input.binding.depositId, input.binding.payeeHash,
+        input.binding.expectedBaseUsdcUnits, paidUsdCents, released.toString(), receipt.paymentCount, fingerprint
+      ]);
+      for (let index = 0; index < receipt.receiptReferences.length; index += 1) {
+        await db.query('INSERT INTO xmoney_receipt_references(receipt_reference, binding_id, payment_index) VALUES($1,$2,$3)',
+          [receipt.receiptReferences[index], input.binding.bindingId, index]);
+      }
+      return { bindingId: input.binding.bindingId, duplicate: false };
     });
   }
   async enqueue(input: { idempotencyKey: string; batchId?: string | null; kind: OutboxJob['kind']; payload: Record<string, unknown>; dueAt?: Date; maxAttempts?: number }) {
