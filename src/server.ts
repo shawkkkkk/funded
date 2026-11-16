@@ -3,6 +3,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { Store } from './store.ts';
 import { SolanaReader } from './solana.ts';
+import { loadConfig } from './config.ts';
+import { PgLedger } from './pg-ledger.ts';
 import { previewLaunch } from './launch-preview.ts';
 import { disclose } from './disclosure.ts';
 import { localSdkFacts, OPEN_QUESTIONS, SENDER_NOTICE } from './peer-cash.ts';
@@ -33,7 +35,7 @@ async function body(req: IncomingMessage) {
   return data as Record<string, unknown>;
 }
 
-export function app(store: Store, reader?: SolanaReader) {
+export function app(store: Store, reader?: SolanaReader, ledger?: PgLedger) {
   return createServer(async (req,res) => {
     res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','no-referrer');
@@ -54,18 +56,21 @@ export function app(store: Store, reader?: SolanaReader) {
       }
       if (req.method === 'GET' && path === '/api/status') {
         const peer = localSdkFacts();
-        return json(200,{mode:'local_draft_only',product:'Funded',launchEnabled:false,payoutEnabled:false,peerOrdersEnabled:false,rpcConfigured:!!reader,paused:store.pauseReason()??null,senderDisplay:'unresolved',senderNotice:SENDER_NOTICE,openQuestions:OPEN_QUESTIONS,peer:{spreadBps:peer.spreadBps,minBaseUnits:peer.minBaseUnits,ordersEnabled:false}});
+        const config = loadConfig();
+        const paused = ledger ? await ledger.pauseReason() : store.pauseReason();
+        return json(200,{mode:'local_draft_only',product:'Funded',launchEnabled:false,payoutEnabled:false,peerOrdersEnabled:false,launchSigner:config.launchSigner,custody:config.custody,pricing:config.pricing,database:ledger?'postgres':'sqlite',rpcConfigured:!!reader,paused:paused??null,senderDisplay:'unresolved',senderNotice:SENDER_NOTICE,openQuestions:OPEN_QUESTIONS,peer:{spreadBps:peer.spreadBps,minBaseUnits:peer.minBaseUnits,ordersEnabled:false}});
       }
       if (req.method === 'GET' && path === '/api/alerts') {
         let unbalanced = false;
-        try { store.balanced(); } catch { unbalanced = true; }
-        return json(200,{alerts:alerts({paused:!!store.pauseReason(),unbalanced,oldestAwaitingBuyerMs:null,maxWaitMs:86_400_000})});
+        try { if (ledger) await ledger.balanced(); else store.balanced(); } catch { unbalanced = true; }
+        const paused = ledger ? await ledger.pauseReason() : store.pauseReason();
+        return json(200,{alerts:alerts({paused:!!paused,unbalanced,oldestAwaitingBuyerMs:null,maxWaitMs:86_400_000})});
       }
       if (req.method === 'GET' && path === '/api/disclosure') {
         const sample = disclose({quoteUnits:10_000n,convertedUsdc:null,bridgeFeeUsdc:null,deliveredUsdMicros:0n,pendingUsdc:0n,fiatVerified:false});
         return json(200,{senderNotice:SENDER_NOTICE,openQuestions:OPEN_QUESTIONS,lpDiscountBps:0,spreadBps:0,sample,paymentComplete:false});
       }
-      if (req.method === 'GET' && path === '/api/payouts') return json(200,{mode:'local_draft_only',senderNotice:SENDER_NOTICE,items:store.publicBatches()});
+      if (req.method === 'GET' && path === '/api/payouts') return json(200,{mode:'local_draft_only',senderNotice:SENDER_NOTICE,items:ledger?await ledger.publicBatches():store.publicBatches()});
       if (req.method === 'GET' && path === '/api/float-account') {
         let mint: PublicKey;
         try { mint = new PublicKey(url.searchParams.get('mint') ?? ''); }
@@ -96,7 +101,7 @@ export function app(store: Store, reader?: SolanaReader) {
       }
       if (req.method === 'POST' && path === '/api/launch-preview') {
         if (req.headers.origin !== 'http://'+req.headers.host || !/^application\/json(?:;|$)/i.test(req.headers['content-type'] ?? '')) return json(403,{error:'Same-origin JSON required'});
-        if (store.pauseReason()) return json(423,{error:'Paused'});
+        if (store.pauseReason() || (ledger && await ledger.pauseReason())) return json(423,{error:'Paused'});
         try {
           const preview = await previewLaunch(await body(req), { feeReceiver: process.env.FUNDED_FEE_RECEIVER, reader });
           return json(200, preview);
@@ -126,8 +131,11 @@ function send(res: ServerResponse,status:number,type:string,bytes:string|Buffer)
   res.end(bytes);
 }
 if (import.meta.main) {
+  const config = loadConfig();
   const urls = (process.env.FUNDED_READ_RPC ?? '').split(',').map(v=>v.trim()).filter(Boolean);
   const store = new Store(process.env.FUNDED_DB ?? 'funded.sqlite');
+  const ledger = config.databaseUrl ? await PgLedger.connect(config.databaseUrl) : undefined;
+  if (ledger) await ledger.migrate();
   const port = Number(process.env.PORT ?? '3100');
-  app(store,urls.length ? new SolanaReader(urls) : undefined).listen(port,'127.0.0.1',()=>console.log('Funded draft-only: http://127.0.0.1:'+port));
+  app(store,urls.length ? new SolanaReader(urls) : undefined, ledger).listen(port,'127.0.0.1',()=>console.log('Funded local: http://127.0.0.1:'+port));
 }
