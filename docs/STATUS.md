@@ -43,18 +43,25 @@ Audit against the original brief, as of the dashboard pull request. Later pull r
 | Money-transmission, sanctions, tax, and tokenized-stock review | Counsel | Required before a public service that holds funds |
 | Brand permission for Float's name or mark | Float, if we ever use their mark | Funded does not present itself as endorsed |
 
-## Remaining
+## Done in the stack after the first audit
 
-These do not need the owner before they can be built. They are still open in this revision.
+| Item | Where |
+| --- | --- |
+| Copper-on-ink palette and system fonts, no DM Sans | `public/style.css`, `public/index.html` |
+| Transaction review lists every launch account, the fee receiver, and the first buy | Launch page |
+| Token explorer, token page with the Float launch account, alerts page | `/explore`, `/token/:mint`, `/alerts` |
+| RPC health lists each endpoint host and fails over | `GET /api/rpc-health` |
+| Fixture walks a fee quote, a bridge read, and a Peer plan after a crashed lease | `test/pipeline-e2e.test.ts` |
+
+The planned USDC amount is an observation. The batch stays in the original asset, Base settlement stays unverified, and `ordersEnabled` stays false.
+
+## Still remaining, and not blocked on the owner
 
 | Item | Gap |
 | --- | --- |
-| Original branding | The interface still uses the dark-blue palette and DM Sans associated with Float's site |
-| Launch portal | The fields exist. Review is a short JSON summary, not a transaction review screen that lists every account, the fee receiver, and the first buy before anything could be signed |
-| Token explorer and token pages | A signature dump and a mint readout. The token page does not show the Float launch account, provenance, or the read-only deposit watch |
-| RPC failover health | Failover exists inside `SolanaReader`. There is no health report of which endpoints answered |
-| Alerts in the product | `GET /api/alerts` exists. No page shows pause, journal imbalance, attribution drift, or a stale order |
-| End-to-end fixture of fee → USDC plan → bridge read → Peer plan, including crash recovery | The pipeline plans those stages, but a non-USDC fee stops after the quote, and a leased job is not reclaimed after the worker dies |
+| Mark file | `public/funded-mark.webp` is still the earlier wave-and-dollar image |
+| Scheduled retry of a route that was not safe | A missing route completes the planning job instead of requeueing itself |
+| Token-2022 and native SOL attribution | Deposits are classified and held. They are not credited |
 
 ## Not claimed
 
