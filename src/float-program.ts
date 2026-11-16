@@ -8,6 +8,8 @@ export const METADATA_PROGRAM_ID = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'
 export const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 export const SYSTEM_PROGRAM_ID = '11111111111111111111111111111111';
 export const RENT_SYSVAR = 'SysvarRent111111111111111111111111111111111';
+export const ASSOCIATED_TOKEN_PROGRAM_ID = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL';
+export const BUY_EXACT_IN_DISCRIMINATOR = Buffer.from('faea0d7bd59c13ec', 'hex');
 
 const FLOAT = new PublicKey(FLOAT_PROGRAM_ID);
 const LAUNCHLAB = new PublicKey(LAUNCHLAB_PROGRAM_ID);
@@ -79,6 +81,57 @@ export function encodeLaunchData(input: LaunchInput) {
     Buffer.from([input.tier]),
     u64(input.mintNonce)
   ]);
+}
+
+/**
+ * LaunchLab BuyExactIn as used for a first buy.
+ * Verified inside finalized launches
+ * 25tJ3nqiKz1ZoVGeE4UeEQHwCifocd6QkHHfTZXBJeFuo8QdessGkxk82Uvnyi53gTYfpJF4RWtjipf8WhM4psoL (500000000 quote, minimum 1)
+ * and 4YAN4GM47ERoeh8ufLm2TGYXwBrATd59X9KM93SeLiB3LfZJU4dQL1RP8ZESRW8w824wj4x7sK5J66tkTmfcit3E (1000000 quote, minimum 1).
+ * The instruction is 32 bytes and 18 accounts. This does not wrap it in another router and does not sign it.
+ */
+export function encodeFirstBuy(input: {
+  user: PublicKey; mint: PublicKey; quoteMint: PublicKey; quoteTokenProgram: PublicKey;
+  tier: number; quoteAmount: bigint; minimumOut?: bigint;
+}) {
+  const minimumOut = input.minimumOut ?? 1n;
+  if (![0, 1, 2].includes(input.tier) || input.quoteAmount <= 0n || input.quoteAmount > 0xffffffffffffffffn || minimumOut <= 0n || minimumOut > 0xffffffffffffffffn) {
+    throw Error('Invalid first buy');
+  }
+  const data = Buffer.alloc(32);
+  BUY_EXACT_IN_DISCRIMINATOR.copy(data, 0);
+  data.writeBigUInt64LE(input.quoteAmount, 8);
+  data.writeBigUInt64LE(minimumOut, 16);
+  const platform = pda([Buffer.from('platform'), Buffer.from([input.tier])], FLOAT);
+  const platformConfig = pda([Buffer.from('platform_config'), platform.toBuffer()], LAUNCHLAB);
+  const pool = pda([Buffer.from('pool'), input.mint.toBuffer(), input.quoteMint.toBuffer()], LAUNCHLAB);
+  const coinVault = pda([Buffer.from('coin'), input.mint.toBuffer()], FLOAT);
+  const associated = new PublicKey(ASSOCIATED_TOKEN_PROGRAM_ID);
+  const ata = (mint: PublicKey, program: PublicKey) => pda([input.user.toBuffer(), program.toBuffer(), mint.toBuffer()], associated);
+  const rows: [string, PublicKey, boolean, boolean][] = [
+    ['payer', input.user, true, true],
+    ['launchlab_authority', pda([Buffer.from('vault_auth_seed')], LAUNCHLAB), false, false],
+    ['global_config', pda([Buffer.from('global_config'), input.quoteMint.toBuffer(), Buffer.from([0]), Buffer.from([0, 0])], LAUNCHLAB), false, false],
+    ['platform_config', platformConfig, false, false],
+    ['pool_state', pool, false, true],
+    ['user_base', ata(input.mint, TOKEN), false, true],
+    ['user_quote', ata(input.quoteMint, input.quoteTokenProgram), false, true],
+    ['base_vault', pda([Buffer.from('pool_vault'), pool.toBuffer(), input.mint.toBuffer()], LAUNCHLAB), false, true],
+    ['quote_vault', pda([Buffer.from('pool_vault'), pool.toBuffer(), input.quoteMint.toBuffer()], LAUNCHLAB), false, true],
+    ['base_mint', input.mint, false, false],
+    ['quote_mint', input.quoteMint, false, false],
+    ['base_token_program', TOKEN, false, false],
+    ['quote_token_program', input.quoteTokenProgram, false, false],
+    ['event_authority', pda([Buffer.from('__event_authority')], LAUNCHLAB), false, false],
+    ['launchlab_program', LAUNCHLAB, false, false],
+    ['system_program', new PublicKey(SYSTEM_PROGRAM_ID), false, false],
+    ['platform_fee_vault', pda([platformConfig.toBuffer(), input.quoteMint.toBuffer()], LAUNCHLAB), false, true],
+    ['creator_fee_vault', pda([coinVault.toBuffer(), input.quoteMint.toBuffer()], LAUNCHLAB), false, true]
+  ];
+  return {
+    data,
+    accounts: rows.map(([name, pubkey, isSigner, isWritable]) => ({ name, pubkey: pubkey.toBase58(), isSigner, isWritable }))
+  };
 }
 
 export function decodeLaunchData(data: Buffer) {
