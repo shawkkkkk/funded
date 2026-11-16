@@ -3,6 +3,12 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { Store } from './store.ts';
 import { SolanaReader } from './solana.ts';
+import { previewLaunch } from './launch-preview.ts';
+import { disclose } from './disclosure.ts';
+import { localSdkFacts, OPEN_QUESTIONS, SENDER_NOTICE } from './peer-cash.ts';
+import { alerts } from './alerts.ts';
+import { isFloatCoin, launchAddress } from './float-program.ts';
+import { PublicKey } from '@solana/web3.js';
 
 const pages = new Set(['/','/launch','/explore','/earnings','/payouts','/liquidity']);
 const assets = new Map([['/app.js','text/javascript'],['/style.css','text/css'],['/funded-mark.webp','image/webp']]);
@@ -46,8 +52,34 @@ export function app(store: Store, reader?: SolanaReader) {
       if (req.method === 'GET' && assets.has(path)) {
         return send(res,200,assets.get(path)!,await readFile(new URL('../public'+path,import.meta.url)));
       }
-      if (req.method === 'GET' && path === '/api/status') return json(200,{mode:'local_draft_only',launchEnabled:false,payoutEnabled:false,rpcConfigured:!!reader});
-      if (req.method === 'GET' && path === '/api/payouts') return json(200,{mode:'local_draft_only',items:[]});
+      if (req.method === 'GET' && path === '/api/status') {
+        const peer = localSdkFacts();
+        return json(200,{mode:'local_draft_only',product:'Funded',launchEnabled:false,payoutEnabled:false,peerOrdersEnabled:false,rpcConfigured:!!reader,paused:store.pauseReason()??null,senderDisplay:'unresolved',senderNotice:SENDER_NOTICE,openQuestions:OPEN_QUESTIONS,peer:{spreadBps:peer.spreadBps,minBaseUnits:peer.minBaseUnits,ordersEnabled:false}});
+      }
+      if (req.method === 'GET' && path === '/api/alerts') {
+        let unbalanced = false;
+        try { store.balanced(); } catch { unbalanced = true; }
+        return json(200,{alerts:alerts({paused:!!store.pauseReason(),unbalanced,oldestAwaitingBuyerMs:null,maxWaitMs:86_400_000})});
+      }
+      if (req.method === 'GET' && path === '/api/disclosure') {
+        const sample = disclose({quoteUnits:10_000n,convertedUsdc:null,bridgeFeeUsdc:null,deliveredUsdMicros:0n,pendingUsdc:0n,fiatVerified:false});
+        return json(200,{senderNotice:SENDER_NOTICE,openQuestions:OPEN_QUESTIONS,lpDiscountBps:0,spreadBps:0,sample,paymentComplete:false});
+      }
+      if (req.method === 'GET' && path === '/api/payouts') return json(200,{mode:'local_draft_only',senderNotice:SENDER_NOTICE,items:store.publicBatches()});
+      if (req.method === 'GET' && path === '/api/float-account') {
+        let mint: PublicKey;
+        try { mint = new PublicKey(url.searchParams.get('mint') ?? ''); }
+        catch { return json(400,{error:'Invalid mint'}); }
+        const launch = launchAddress(mint.toBase58());
+        if (!reader) return json(200,{mint:mint.toBase58(),launch,checked:false,isFloatCoin:false,verifiedFundedLaunch:false});
+        try {
+          const result = await reader.read('getAccountInfo',[launch,{commitment:'finalized',encoding:'base64'}]);
+          const value = result?.value;
+          const raw = value?.data?.[0];
+          const data = typeof raw === 'string' ? Buffer.from(raw,'base64') : Buffer.alloc(0);
+          return json(200,{mint:mint.toBase58(),launch,checked:true,owner:value?.owner??null,isFloatCoin:isFloatCoin(value?.owner??'',data,mint.toBase58()),verifiedFundedLaunch:false});
+        } catch { return json(502,{error:'Unable to read Float launch account'}); }
+      }
       if (req.method === 'GET' && path === '/api/transactions') {
         if (!reader) return json(503,{error:'Read-only Solana RPC not configured'});
         try {
@@ -61,6 +93,14 @@ export function app(store: Store, reader?: SolanaReader) {
           const info = await reader.mintOwner(url.searchParams.get('mint') ?? '');
           return json(info ? 200 : 404,info ?? {error:'Mint not found'});
         } catch { return json(502,{error:'Unable to inspect mint'}); }
+      }
+      if (req.method === 'POST' && path === '/api/launch-preview') {
+        if (req.headers.origin !== 'http://'+req.headers.host || !/^application\/json(?:;|$)/i.test(req.headers['content-type'] ?? '')) return json(403,{error:'Same-origin JSON required'});
+        if (store.pauseReason()) return json(423,{error:'Paused'});
+        try {
+          const preview = await previewLaunch(await body(req), { feeReceiver: process.env.FUNDED_FEE_RECEIVER, reader });
+          return json(200, preview);
+        } catch (e) { return json(400,{error:e instanceof Error && !(e instanceof SyntaxError) ? e.message : 'Invalid JSON'}); }
       }
       if (req.method === 'POST' && path === '/api/drafts') {
         if (req.headers.origin !== 'http://'+req.headers.host || !/^application\/json(?:;|$)/i.test(req.headers['content-type'] ?? '')) return json(403,{error:'Same-origin JSON required'});

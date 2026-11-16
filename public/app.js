@@ -18,6 +18,7 @@ const html = (s) => { main.innerHTML = s; };
 const page = (eyebrow,title,desc,content) =>
   '<section class="page"><span class="eyebrow">'+eyebrow+'</span><h1>'+title+'</h1><p>'+desc+'</p>'+content+'</section>';
 const notice = '<div class="notice">Development build · Funded does not submit launches, swaps, bridges, or payouts.</div>';
+const sender = '<p class="muted">A matched liquidity provider sends the dollars through X Money. The sender you see may be that provider. It is not confirmed whether a payment can display as @fundedonfloat. There is no claim page.</p>';
 const empty = (message) => '<div class="card gap"><p class="muted">'+message+'</p></div>';
 const split = '<div class="card"><span class="eyebrow">Reference only</span><h2>Float fee distribution</h2><p class="muted">Share of fees after Raydium’s allocation. Only the creator share is intended for Funded.</p><dl><dt>Holder rewards</dt><dd>15%</dd><dt>Creator allocation</dt><dd>5%</dd><dt>Buyback and burn</dt><dd>35%</dd><dt>Trader rewards</dt><dd>35%</dd><dt>Float treasury</dt><dd>10%</dd></dl></div>';
 async function request(url, init) {
@@ -55,13 +56,16 @@ if (current === '/') {
   <label>Token image (up to 1 MB)<input name="image" type="file" accept="image/png,image/jpeg,image/webp"></label>
   <label>Website<input name="website" type="url" placeholder="https://"></label><label>X profile URL<input name="x" type="url" placeholder="https://x.com/…"></label><label>Telegram<input name="telegram" type="url" placeholder="https://t.me/…"></label>
   <label class="full">Description<textarea name="description" maxlength="1000"></textarea></label>
-  </div><div class="actions"><button class="btn" type="submit">Save and review draft</button></div><pre id="out" aria-live="polite"></pre></form>
-  <div>${split}<section class="card gap" aria-labelledby="handoff-title"><span class="eyebrow">Official Float handoff</span>
+  <label class="full">Metadata URI<input name="metadataUri" type="url" placeholder="https://"></label>
+  <label>Mint nonce<input name="mintNonce" inputmode="numeric" pattern="[0-9]+" value="1"></label>
+  <label id="token-program" hidden>Quote token program<select name="quoteTokenProgram"><option value="TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">Token</option><option value="TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb">Token-2022</option></select></label>
+  </div><div class="actions"><button class="btn" type="submit">Save and review draft</button><button class="btn ghost" id="preview" type="button">Review unsigned instruction</button></div><pre id="out" aria-live="polite"></pre></form>
+  <div>${split}${sender}<section class="card gap" aria-labelledby="handoff-title"><span class="eyebrow">Official Float handoff</span>
   <h2 id="handoff-title">Continue on Float</h2><p class="muted">Save your draft first. For a Funded intake trial, wait for the operator to assign a dedicated fee wallet. On Float, select <strong>Other wallet</strong> and use that exact address. Draft details aren’t sent to Float and USD payouts aren’t active.</p>
   <div class="actions"><a class="btn ghost" href="https://www.floatlaunch.xyz/create" target="_blank" rel="noopener noreferrer">Open Float’s launch form <span aria-hidden="true">↗</span></a></div></section></div></div>`));
   const form = document.querySelector('#draft'), pair = form.elements.pair, custom = document.querySelector('#custom');
   form.elements.payoutRail.addEventListener('change',()=>{form.elements.recipient.placeholder=form.elements.payoutRail.value==='cashapp'?'$cashtag':'@handle';});
-  pair.addEventListener('change',()=>{custom.hidden = pair.value !== 'custom'; form.elements.customMint.required = !custom.hidden;});
+  pair.addEventListener('change',()=>{custom.hidden = pair.value !== 'custom'; form.elements.customMint.required = !custom.hidden; document.querySelector('#token-program').hidden = custom.hidden;});
   form.addEventListener('submit',async(e)=>{
     e.preventDefault();
     const button = form.querySelector('button'), out = document.querySelector('#out');
@@ -84,6 +88,19 @@ if (current === '/') {
     } catch(err) { renderOutput(out,err.message,true); }
     finally { button.disabled = false; }
   });
+  document.querySelector('#preview').addEventListener('click', async () => {
+    const out = document.querySelector('#out'), button = document.querySelector('#preview');
+    button.disabled = true;
+    try {
+      const v = Object.fromEntries(new FormData(form));
+      if (v.pair === 'custom') v.pair = v.customMint;
+      v.feeBps = Number(v.feeBps);
+      delete v.image; delete v.customMint;
+      const result = await request('/api/launch-preview',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(v)});
+      renderOutput(out,{status:result.status,program:result.program,mint:result.mint,feeReceiver:result.feeReceiver,accounts:result.accounts.length,submit:result.submit,signature:result.signature,firstBuyEncoded:result.firstBuyEncoded,chainPinChecked:result.chainPinChecked});
+    } catch (err) { renderOutput(out,err.message,true); }
+    finally { button.disabled = false; }
+  });
 } else if (current === '/explore') {
   html(page('Read-only tools','Float explorer','Inspect finalized program activity or look up a Solana mint. A program call alone does not prove a Funded launch.',notice+`
   <div class="card gap"><form id="tx" class="entry"><label>Transaction signature<input name="signature" minlength="80" maxlength="88" required></label><button class="btn">Inspect</button></form>
@@ -99,9 +116,14 @@ if (current === '/') {
   const out = document.querySelector('#mintout');
   request('/api/mint?mint='+encodeURIComponent(current.split('/').at(-1))).then(v=>renderOutput(out,v)).catch(e=>renderOutput(out,e.message,true));
 } else if (current === '/earnings') {
-  html(page('Creator workspace','Creator earnings','Live creator balances will appear after wallet authentication, fee attribution and reconciliation are enabled.',notice+empty('No verified creator earnings are available in this build.')));
+  html(page('Creator workspace','Creator earnings','One handle can cover many tokens. Balances appear only after a receipt is attributed. Nothing here is a claim.',notice+sender+'<pre class="card gap" id="cost" aria-live="polite">Reading the cost breakdown…</pre>'));
+  request('/api/disclosure').then(v=>renderOutput(document.querySelector('#cost'),v)).catch(e=>renderOutput(document.querySelector('#cost'),e.message,true));
 } else if (current === '/liquidity') {
-  html(page('Peer settlement','Liquidity activity','Matched orders and verified payments will appear after the live settlement integration is authorized.',notice+empty('No verified liquidity-provider activity.')));
+  html(page('Peer settlement','Liquidity activity','A matched liquidity provider pays the creator through the selected app. A match is not a completed payment.',notice+sender+empty('No verified liquidity-provider activity.')));
 } else {
-  html(page('Public record','Payout history','Only verified settlement will appear here. Account handles, mailbox data and private recovery information are not public.',notice+empty('No verified Funded payouts.')));
+  html(page('Public record','Payout history','Only verified settlement will appear here. Account handles, mailbox data and private recovery information are not public.',notice+'<div id="rows" class="card gap" aria-live="polite">Reading…</div>'));
+  request('/api/payouts').then(data=>{
+    const rows = data.items.length ? '<ul>'+data.items.map(item=>'<li>'+item.status+' · '+item.asset+' · '+item.units+'</li>').join('')+'</ul>' : '<p class="muted">No verified Funded payouts.</p>';
+    document.querySelector('#rows').innerHTML = '<p class="muted">'+data.senderNotice+'</p>'+rows;
+  }).catch(e=>{ document.querySelector('#rows').textContent = e.message; });
 }

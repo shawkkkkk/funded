@@ -89,7 +89,7 @@ export function guardQuote(q: SwapQuote, p: {
 }
 
 export type Status = 'received'|'waiting_route'|'swap_pending'|'solana_usdc'|'bridge_pending'|'base_usdc'|'peer_pending'|'awaiting_buyer'|'partially_paid'|'returned'|'paid'|'review';
-export type EventType = 'hold_route'|'swap_submitted'|'swap_finalized'|'bridge_submitted'|'bridge_finalized'|'peer_submitted'|'peer_deposit_finalized'|'fiat_proven'|'peer_return_finalized'|'resume_returned'|'review';
+export type EventType = 'hold_route'|'swap_submitted'|'swap_finalized'|'bridge_submitted'|'bridge_finalized'|'peer_submitted'|'peer_deposit_finalized'|'fiat_proven'|'peer_return_finalized'|'resume_returned'|'intent_expired'|'review';
 const transitions: Partial<Record<Status, Partial<Record<EventType, Status>>>> = {
   received: { hold_route: 'waiting_route', swap_submitted: 'swap_pending' },
   waiting_route: { swap_submitted: 'swap_pending' },
@@ -98,8 +98,8 @@ const transitions: Partial<Record<Status, Partial<Record<EventType, Status>>>> =
   bridge_pending: { bridge_finalized: 'base_usdc' },
   base_usdc: { peer_submitted: 'peer_pending' },
   peer_pending: { peer_deposit_finalized: 'awaiting_buyer' },
-  awaiting_buyer: { fiat_proven: 'partially_paid', peer_return_finalized: 'returned' },
-  partially_paid: { fiat_proven: 'partially_paid', peer_return_finalized: 'returned' },
+  awaiting_buyer: { fiat_proven: 'partially_paid', peer_return_finalized: 'returned', intent_expired: 'awaiting_buyer' },
+  partially_paid: { fiat_proven: 'partially_paid', peer_return_finalized: 'returned', intent_expired: 'partially_paid' },
   returned: { resume_returned: 'base_usdc' }
 };
 export function next(status: Status, event: EventType): Status {
