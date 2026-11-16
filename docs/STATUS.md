@@ -47,8 +47,7 @@ Audit against the original brief, as of the dashboard pull request. Later pull r
 
 | Item | Where |
 | --- | --- |
-| Copper-on-ink palette and system fonts, no DM Sans | `public/style.css`, `public/index.html` |
-| Transaction review lists every launch account, the fee receiver, and the first buy | Launch page |
+| Transaction review lists every launch account, the fee receiver, and the first buy | Launch page, on top of the brand already on main |
 | Token explorer, token page with the Float launch account, alerts page | `/explore`, `/token/:mint`, `/alerts` |
 | RPC health lists each endpoint host and fails over | `GET /api/rpc-health` |
 | Fixture walks a fee quote, a bridge read, and a Peer plan after a crashed lease | `test/pipeline-e2e.test.ts` |

@@ -14,16 +14,14 @@ test('sqlite dashboard exposes cost breakdown and no claimable balance', async (
     assert.deepEqual(earnings.items, []);
     assert.equal(earnings.paymentComplete, false);
     assert.equal(earnings.lpDiscountBps, 0);
+    assert.match(earnings.marketplaceNotice, /binds when a buyer submits intent/);
     const liquidity = await (await fetch(origin + '/api/liquidity')).json();
     assert.deepEqual(liquidity.items, []);
     assert.equal(liquidity.ordersEnabled, false);
+    assert.equal(liquidity.marketDiscountBps, 0);
     const payouts = await (await fetch(origin + '/api/payouts')).json();
     assert.equal(payouts.spreadBps, 0);
-    const html = await (await fetch(origin + '/earnings')).text();
-    assert.match(html, /no claim page/i);
-    assert.doesNotMatch(html, /DM Sans/);
-    assert.doesNotMatch(html, /fonts\.googleapis/);
-    assert.match(html, /#24160f/);
+    assert.match(await (await fetch(origin + '/earnings')).text(), /no claim page/i);
   } finally {
     await new Promise(resolve => server.close(resolve));
     store.db.close();

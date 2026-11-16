@@ -6,6 +6,7 @@ import { stepPipeline } from '../src/pipeline.ts';
 import { SOLANA_USDC } from '../src/domain.ts';
 import { app } from '../src/server.ts';
 import { Store } from '../src/store.ts';
+import { createXMoneyReceiptBinding, xMoneyPaymentReference } from '../src/xmoney-receipt.ts';
 
 const url = process.env.FUNDED_DATABASE_URL;
 const creator = 'ix9YkGjxyxvtADosH1mWWk3TUUuoNtbjHwm9bzN7DVq';
@@ -19,6 +20,8 @@ test('config keeps execution off and remembers the recommended defaults', () => 
   assert.equal(config.launchSigner, 'creator');
   assert.equal(config.custody, 'funded_receiver_unapproved');
   assert.equal(config.pricing, 'zero_spread');
+  assert.equal(config.deploymentMode, 'local');
+  assert.equal(config.bindAddress, '127.0.0.1');
   assert.equal(loadConfig({ FUNDED_PRICING: 'separate_incentive' }).pricing, 'separate_incentive');
   assert.throws(() => loadConfig({ FUNDED_DATABASE_URL: 'mysql://local' }), /postgres/);
 });
@@ -41,6 +44,28 @@ test('postgres ledger, outbox, and planning pipeline', { skip: url ? false : 'FU
     const credited = await ledger.credit({ launchId: enrolled.launchId, originRef: 'solana:test:receipt', signature: 'sig', asset: SOLANA_USDC, units: '5000000' });
     assert.equal((await ledger.credit({ launchId: enrolled.launchId, originRef: 'solana:test:receipt', signature: 'sig', asset: SOLANA_USDC, units: '5000000' })).duplicate, true);
     await assert.rejects(ledger.credit({ launchId: enrolled.launchId, originRef: 'solana:test:receipt', signature: 'sig', asset: SOLANA_USDC, units: '1' }), /Conflicting receipt/);
+    const receiptKey = 'postgres-receipt-test-key-that-is-at-least-thirty-two-bytes';
+    const binding = createXMoneyReceiptBinding({
+      planReference: 'funded_batch:postgres-test',
+      depositId: `${'0x' + '2'.repeat(40)}_7`,
+      payeeHash: `0x${'5'.repeat(64)}`,
+      expectedBaseUsdcUnits: '5000000'
+    });
+    const verifiedReceipt = {
+      bindingId: binding.bindingId,
+      depositId: binding.depositId,
+      state: 'delivered' as const,
+      verified: true,
+      paidUsd: 5,
+      releasedBaseUsdcUnits: '5000000',
+      paymentCount: 1,
+      receiptReferences: [xMoneyPaymentReference('postgres-payment-1', receiptKey)],
+      rawReceiptStored: false as const,
+      reasons: []
+    };
+    assert.equal((await ledger.admitVerifiedXMoneyReceipt({ batchId: credited.batchId, binding, receipt: verifiedReceipt })).duplicate, false);
+    assert.equal((await ledger.admitVerifiedXMoneyReceipt({ batchId: credited.batchId, binding, receipt: verifiedReceipt })).duplicate, true);
+    await assert.rejects(ledger.admitVerifiedXMoneyReceipt({ batchId: credited.batchId, binding, receipt: { ...verifiedReceipt, paidUsd: 4 } }), /Conflicting/);
     assert.equal(await ledger.balanced(), true);
 
     const now = new Date('2026-11-09T00:00:00Z');
@@ -113,13 +138,15 @@ test('postgres ledger, outbox, and planning pipeline', { skip: url ? false : 'FU
       assert.equal(payouts.items.length, 2);
       assert.equal(payouts.items[0].cost.lpDiscountBps, 0);
       assert.equal(payouts.items[0].cost.paymentComplete, false);
-      assert.match(payouts.senderNotice, /liquidity provider/);
+      assert.match(payouts.senderNotice, /matched buyer/);
       const earnings = await (await fetch(origin + '/api/earnings?handle=creator')).json();
       assert.equal(earnings.items.length, 2);
       assert.equal(earnings.paymentComplete, false);
       const liquidity = await (await fetch(origin + '/api/liquidity')).json();
       assert.equal(liquidity.ordersEnabled, false);
-      assert.equal(liquidity.senderDisplay, 'unresolved');
+      assert.equal(liquidity.senderDisplay, 'matched_buyer');
+      assert.equal(liquidity.paymentNoteBranding, '@fundedonfloat');
+      assert.equal(liquidity.partnerApprovalRequired, false);
       assert.ok(liquidity.items.length >= 1);
     } finally { await new Promise(resolve => server.close(resolve)); }
   } finally { await ledger.close(); }

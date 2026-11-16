@@ -82,8 +82,10 @@ test('Peer fixture does partial, full, refund, and duplicate flows without submi
   const facts = localSdkFacts();
   assert.equal(facts.ordersEnabled, false);
   assert.equal(facts.spreadBps, 0);
-  assert.equal(facts.senderDisplay, 'unresolved');
-  assert.equal(OPEN_QUESTIONS.length, 3);
+  assert.equal(facts.senderDisplay, 'matched_buyer');
+  assert.equal(facts.partnerApprovalRequired, false);
+  assert.equal(facts.paymentNoteBranding, '@fundedonfloat');
+  assert.equal(OPEN_QUESTIONS.length, 2);
   assert.deepEqual(xmoneyReceive('@Creator'), { platform: 'xmoney', currency: 'USD', payee: '@creator' });
   const cash = new FixtureCash();
   const first = cash.deposit('fixture:order-1', 2_000_000n, '@Creator');
@@ -140,6 +142,9 @@ test('job leases fence out a stale worker', () => {
 test('preview and pages stay unsigned, and the schema names the payout tables', async () => {
   const schema = await readFile(new URL('../db/postgres.sql', import.meta.url), 'utf8');
   for (const table of ['launches', 'receipts', 'journal', 'peer_orders', 'fills', 'jobs', 'pauses']) assert.match(schema, new RegExp('CREATE TABLE ' + table));
+  const receiptSchema = await readFile(new URL('../db/migrations/003_xmoney_receipts.sql', import.meta.url), 'utf8');
+  for (const table of ['xmoney_receipt_bindings', 'xmoney_receipt_references']) assert.match(receiptSchema, new RegExp('CREATE TABLE ' + table));
+  assert.doesNotMatch(receiptSchema, /payment_id|receipt_url/);
   const store = new Store(':memory:');
   const reader = new SolanaReader(['https://ok.example'], async () => Response.json({ id: 1, result: { value: { data: [configFixture().toString('base64'), 'base64'], owner: '3KguFi7YYzLgttG46fRism16CfcuNCkDh6U7td9JTqxX' } } }));
   const body = { name: 'José', ticker: 'solminer', description: '', pair: 'native:sol', feeBps: 100, recipient: '@creator', payoutRail: 'xmoney', firstBuyBaseUnits: '0', creatorWallet: creator, website: '', x: '', telegram: '', metadataUri: 'https://example.com/coin.json', mintNonce: '4' };
@@ -163,12 +168,20 @@ test('preview and pages stay unsigned, and the schema names the payout tables', 
     const html = await page.text();
     assert.match(html, /FUNDED/);
     assert.match(html, /@fundedonfloat/);
-    assert.match(html, /liquidity provider/);
+    assert.match(html, /matched buyer/);
     const status = await (await fetch(origin + '/api/status')).json();
     assert.equal(status.launchEnabled, false);
     assert.equal(status.peerOrdersEnabled, false);
-    assert.equal(status.senderDisplay, 'unresolved');
-    assert.equal(status.openQuestions.length, 3);
+    assert.equal(status.senderDisplay, 'matched_buyer');
+    assert.equal(status.paymentNoteBranding, '@fundedonfloat');
+    assert.equal(status.partnerApprovalRequired, false);
+    assert.equal(status.openQuestions.length, 2);
+    assert.equal(status.peer.marketDiscountBps, 0);
+    assert.equal(status.peer.claimlessEligibility, 'unverified');
+    assert.equal(status.payoutReadiness.status, 'blocked_recipient');
+    assert.equal(status.payoutReadiness.claimRequired, false);
+    const how = await (await fetch(origin + '/how')).text();
+    assert.match(how, /Payout architecture/);
     const denied = await fetch(origin + '/api/launch-preview', { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://elsewhere.example' }, body: '{}' });
     assert.equal(denied.status, 403);
     const preview = await fetch(origin + '/api/launch-preview', { method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify(body) });

@@ -1,0 +1,11 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+node_modules
+test
+coverage
+*.sqlite
+*.sqlite-*
+npm-debug.log*

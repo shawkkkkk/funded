@@ -11,7 +11,7 @@ The verified protocol facts are in [INVESTIGATION.md](./INVESTIGATION.md). This 
 | Language | TypeScript on Node 24 | Already the repo. The owner prefers it. |
 | HTTP and pages | The existing Node server, responsive HTML, and CSS | The draft flow, same-origin checks, and payout journal are tested here. |
 | Solana | `@solana/web3.js` for PDA derivation and instruction data | The launch account list was checked against a finalized transaction. |
-| Peer | `@zkp2p/cash` 0.7.3 | Public SDK. No private partnership is assumed. Order methods stay unreachable. |
+| Peer | `@zkp2p/cash` 0.8.1 | Public SDK. The owner-supplied Peer reply says no separate partner approval is required. Order methods stay unreachable. |
 | Production database | PostgreSQL | Durable payouts, unique source locators, and worker leases need it. The schema is `db/postgres.sql`. |
 | Local database | SQLite through `node:sqlite` | Zero-credential draft mode already works. It is not the production ledger. |
 | Jobs | A leased outbox in the same database | Restart, duplicate delivery, and pause have to survive a process crash. |
@@ -94,9 +94,19 @@ The adapter speaks the public SDK:
 - `prepare` / `cashout` / `withdraw` / `topUp` are coded as a blocked port, not called
 - `order` is the only status source, and a fixture implements it in tests
 
-Deposit confirmation moves a batch to `awaiting_buyer`. It is not `paid`. A fill counts only when `fiat_proven` carries a payment id, USDC consumed, and USD micros inside the order's economics. Partial fills stay `partially_paid` until the escrow is zero. `withdraw` of the full remainder returns the batch to Base USDC for another attempt. An expired intent records `intent_expired` and moves no funds. The creator-facing notice states that the sender may be the liquidity provider. Whether that sender can instead be @fundedonfloat is an open product question, not a field we set.
+Deposit confirmation moves a batch to `awaiting_buyer`. It is not `paid`. A fill counts only when `fiat_proven` carries a payment id, USDC consumed, and USD micros inside the order's economics. Partial fills stay `partially_paid` until the escrow is zero. `withdraw` of the full remainder returns the batch to Base USDC for another attempt. An expired intent records `intent_expired` and moves no funds. Based on the owner-supplied Peer reply, the matched buyer appears as the X Money sender and `@fundedonfloat` can appear in the payment notes. Funded does not present itself as the sender.
 
-Cash App and Venmo stay in the draft form as creator-selected rails. They are not enabled for live payout. X Money is the first rail to test, after the owner authorizes a preproduction wallet.
+Before a verified fill may reach the journal, the receipt guard binds the
+reviewed plan reference to one persisted Peer deposit, its on-chain X Money
+payee hash and the exact Base-USDC amount. Each fill must be fulfilled, release
+its exact amount, and carry a USD payment made inside the provider-reported
+intent window. External payment ids are converted to keyed HMAC references for
+global replay checks; raw payment ids and shareable receipt links are not
+returned by the guard. The HMAC key belongs in managed server storage and must
+not be reused as a wallet or provider credential. This is a local admission
+control over provider evidence, not independent X Money verification.
+
+Cash App and Venmo remain visible as disabled planned rails in the draft form. They are not enabled for live payout. X Money is the first rail to test, after recipient eligibility, SDK integration, custody, and a controlled test wallet are ready. If a gate fails, funds stay held as Base USDC; Funded does not create a creator-facing recovery wallet or claim balance.
 
 ## Payout state
 
@@ -118,7 +128,7 @@ Local and same-origin, as today.
 
 | Method | Path | Behavior |
 | --- | --- | --- |
-| GET | `/`, `/launch`, `/explore`, `/token/:mint`, `/earnings`, `/payouts`, `/liquidity` | Pages. No claim control. |
+| GET | `/`, `/launch`, `/how`, `/explore`, `/token/:mint`, `/earnings`, `/payouts`, `/liquidity` | Pages. No claim control. |
 | POST | `/api/drafts` | Validate and store a draft. |
 | POST | `/api/launch-preview` | Unsigned instruction preview. `submit` is false. |
 | GET | `/api/status` | Gates, pause, SDK facts that are local, open questions. |
@@ -143,7 +153,8 @@ Shown per batch, in integers:
 - the headline tier is not the creator's take: on the curve the verified tier rates are 0.75%, 1.75%, and 2.25% of volume for Float, and Float documents an additional 0.25% to Raydium
 - conversion units in and USDC out, or "pending, no safe route"
 - bridge fee and net Base USDC, or "not bridged"
-- LP discount: 0 bps, because the SDK spread is 0. A separate incentive is an owner decision and would be an explicit extra line, not a silent haircut
+- Peer protocol spread: 0 bps in the reviewed SDK capability metadata
+- Peer rate: zero-spread Base oracle market rate, bound at the buyer intent signal; pre-intent estimates are approximate
 - USD micros delivered, only after `fiat_proven`
 - amount still pending
 
@@ -156,6 +167,7 @@ No dollar price is invented for an illiquid quote.
 - RPC client allows only the existing read methods.
 - Preview cannot target a receiver other than the configured public address.
 - Peer payee changes do not alter an order id already stored.
+- Verified X Money results are admitted atomically against one batch; keyed receipt references are globally unique across restarts, while raw provider ids and receipt URLs are never stored.
 - Fixture order ids and consent ids cannot be mistaken for production ids; production execution throws.
 - Sanctions and denied-handle checks are not implemented because no screening vendor is connected. That blocks a live payout, not a fixture.
 - Tokenized-stock quotes can be frozen by their issuers. The holder of the receiver key bears that delay. The creator is told before launch.
@@ -191,10 +203,10 @@ A local fixture, a quote, or a successful unit test is not that review.
 1. **Custody.** Options are Funded-held receiver, qualified custodian, or Funded-signed launches. Recommendation: creator-signed launches and a Funded-held receiver under an approved custody arrangement. Supply the public address only.
 2. **LP incentive.** Options are the SDK's zero spread, or a separately funded discount with its own accounting. Recommendation: zero spread, fully disclosed, until Peer answers the fill-time question. Do not copy BagsPay's 10/20 percent.
 3. **UI shell.** Options are to stay on this server or rewrite in Next.js now. Recommendation: stay, and add Next.js only as a client of this API.
-4. **Peer testing.** Options wait on Peer. Recommendation: keep both sender displays possible, tell creators a third party may be the sender, and do not run preproduction until the owner authorizes a funded wallet.
+4. **Peer testing.** Recommendation: disclose the matched buyer as sender and `@fundedonfloat` as payment-note identity, and do not run a controlled test until the owner authorizes a funded wallet.
 
 ## Still blocked on someone else
 
 - Owner: public receiver address, custody approval, any live or devnet signature, counsel.
 - Float: enabling a quote that is not already listed; they can also pause or upgrade without notice.
-- Peer: the three open questions in the investigation. The SDK integration does not wait on them. A real payout does.
+- Peer: the two open questions in the investigation. The SDK integration does not wait on them. A real payout does.

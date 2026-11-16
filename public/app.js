@@ -18,11 +18,11 @@ const html = (s) => { main.innerHTML = s; };
 const page = (eyebrow,title,desc,content) =>
   '<section class="page"><span class="eyebrow">'+eyebrow+'</span><h1>'+title+'</h1><p>'+desc+'</p>'+content+'</section>';
 const notice = '<div class="notice">Development build · Funded does not submit launches, swaps, bridges, or payouts.</div>';
-const sender = '<p class="muted">A matched liquidity provider sends the dollars through X Money. The sender you see may be that provider. It is not confirmed whether a payment can display as @fundedonfloat. There is no claim page.</p>';
+const sender = '<div class="callout"><strong>Claimless delivery has gates.</strong><p>A matched buyer sends the dollars through X Money and appears as the sender. Funded can be identified as @fundedonfloat in the payment notes, not as the sender. Recipient eligibility, marketplace price, and actual USD receipt still require end-to-end verification. Funded has no claim page; blocked payouts remain held as Base USDC and are never labeled complete.</p></div>';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function costList(cost) {
   if (!cost) return '';
-  return '<dl><dt>Original units</dt><dd>'+esc(cost.originalQuoteUnits)+'</dd><dt>Creator share</dt><dd>'+esc(cost.creatorUnits)+'</dd><dt>Rounding dust</dt><dd>'+esc(cost.roundingDustUnits)+'</dd><dt>Conversion to USDC</dt><dd>'+esc(cost.convertedUsdc ?? 'pending, no safe route')+'</dd><dt>Bridge fee</dt><dd>'+esc(cost.bridgeFeeUsdc ?? 'not bridged')+'</dd><dt>LP discount</dt><dd>'+esc(cost.lpDiscountBps)+' bps</dd><dt>USD micros delivered</dt><dd>'+esc(cost.deliveredUsdMicros)+'</dd><dt>Still pending</dt><dd>'+esc(cost.pendingUsdc)+'</dd><dt>Payment complete</dt><dd>'+(cost.paymentComplete?'yes':'no')+'</dd></dl>';
+  return '<dl><dt>Original units</dt><dd>'+esc(cost.originalQuoteUnits)+'</dd><dt>Creator share</dt><dd>'+esc(cost.creatorUnits)+'</dd><dt>Rounding dust</dt><dd>'+esc(cost.roundingDustUnits)+'</dd><dt>Conversion to USDC</dt><dd>'+esc(cost.convertedUsdc ?? 'pending, no safe route')+'</dd><dt>Bridge fee</dt><dd>'+esc(cost.bridgeFeeUsdc ?? 'not bridged')+'</dd><dt>Marketplace discount</dt><dd>'+(cost.lpDiscountBps == null ? 'not quoted' : esc(cost.lpDiscountBps)+' bps')+'</dd><dt>USD micros delivered</dt><dd>'+esc(cost.deliveredUsdMicros)+'</dd><dt>Still pending</dt><dd>'+esc(cost.pendingUsdc)+'</dd><dt>Payment complete</dt><dd>'+(cost.paymentComplete?'yes':'no')+'</dd></dl>';
 }
 const empty = (message) => '<div class="card gap"><p class="muted">'+message+'</p></div>';
 const split = '<div class="card"><span class="eyebrow">Reference only</span><h2>Float fee distribution</h2><p class="muted">Share of fees after Raydium’s allocation. Only the creator share is intended for Funded.</p><dl><dt>Holder rewards</dt><dd>15%</dd><dt>Creator allocation</dt><dd>5%</dd><dt>Buyback and burn</dt><dd>35%</dd><dt>Trader rewards</dt><dd>35%</dd><dt>Float treasury</dt><dd>10%</dd></dl></div>';
@@ -38,14 +38,12 @@ function renderOutput(el,value,isError=false) {
 }
 if (current === '/') {
   html(`<section class="hero">
-    <div><span class="eyebrow">Independent Solana launchpad</span><h1>Launch on Float.<br>Get paid in dollars.</h1><p>Funded is building automatic USD payouts from genuine Float creator fees. Pick X Money, Cash App, or Venmo once. No claim button.</p>
-    <div class="actions"><a class="btn" href="/launch">Prepare a launch <span aria-hidden="true">→</span></a><a class="btn ghost" href="/explore">Explore the protocol</a></div></div>
-    <div class="card path"><span class="eyebrow">Planned payout flow</span><h2>From trading fees to USD</h2><ol>
-    <li><span class="num">01</span><div><strong>Launch a Float token</strong><small>Float keeps its native trading and reward mechanics.</small></div></li>
-    <li><span class="num">02</span><div><strong>Collect the creator share</strong><small>Receive fees in the token’s pairing asset.</small></div></li>
-    <li><span class="num">03</span><div><strong>Convert when a safe route exists</strong><small>Unroutable assets remain pending.</small></div></li>
-    <li><span class="num">04</span><div><strong>Settle to the selected payout app</strong><small>Mark payment complete only after verification.</small></div></li></ol></div>
-  </section>${notice}<section class="grid" aria-label="Funded principles"><div class="card"><h2>Genuine Float tokens</h2><p>No substitute token contract.</p></div><div class="card"><h2>Multi-asset by design</h2><p>Pairing-asset support is separate from safe conversion availability.</p></div><div class="card"><h2>Traceable payouts</h2><p>Separate received fees, conversion, bridge settlement and verified USD.</p></div></section>`);
+    <img class="hero-mark" src="/funded-mark.webp" width="72" height="72" alt=""><br><span class="eyebrow">Automatic creator payouts · In development</span><h1>Launch on Float.<br>Get paid in dollars.</h1><p>Funded is building a direct path from genuine Float creator fees to USD in the payout app a creator chooses. No dashboard balance to claim.</p>
+    <div class="actions"><a class="btn" href="/launch">Prepare a launch <span aria-hidden="true">→</span></a><a class="btn ghost" href="/explore">Explore the protocol</a></div>
+  </section>${notice}<section class="bento gap" aria-label="Funded product preview">
+    <div class="card payout-card"><div><span class="eyebrow">Creator payout preview</span><div class="payout-amount">$1,284.20</div><div class="payout-caption"><span class="status-dot" aria-hidden="true"></span>Illustrative only · no live funds</div></div><div class="rail-list"><div class="rail"><span class="rail-icon">X</span><div><strong>X Money</strong><small>Primary acceptance rail</small></div><em>First</em></div><div class="rail"><span class="rail-icon">$</span><div><strong>Cash App</strong><small>Separate creator-approved fallback</small></div><em>Planned</em></div><div class="rail"><span class="rail-icon">V</span><div><strong>Venmo</strong><small>Separate creator-approved fallback</small></div><em>Planned</em></div></div></div>
+    <div class="bento-stack"><div class="card path"><span class="eyebrow">Planned payout flow</span><h2>From trading fees to USD</h2><ol><li><span class="num">01</span><div><strong>Launch on Float</strong><small>Keep Float’s native trading mechanics.</small></div></li><li><span class="num">02</span><div><strong>Receive the creator share</strong><small>Attribute the finalized fee receipt.</small></div></li><li><span class="num">03</span><div><strong>Settle into Base USDC</strong><small>Swap and bridge only through verified routes.</small></div></li><li><span class="num">04</span><div><strong>Verify X Money delivery</strong><small>Bind each payment to one order, payee hash, amount, and provider intent window.</small></div></li></ol></div><div class="card"><span class="eyebrow">No claim system</span><h2>Payment is the product.</h2><p>Eligible recipients are paid automatically. If a route is blocked, funds remain held as Base USDC instead of becoming a claimable dashboard balance.</p></div></div>
+  </section><section class="grid" aria-label="Funded principles"><div class="card"><h2>Genuine Float tokens</h2><p>No substitute token contract.</p></div><div class="card"><h2>Multi-asset by design</h2><p>Launch support and safe conversion availability remain separate gates.</p></div><div class="card"><h2>Traceable payouts</h2><p>Fees, conversion, bridge settlement, and USD delivery stay independently auditable.</p></div></section>`);
 } else if (current === '/launch') {
   html(page('Launch portal','Prepare a Float launch','Save and review a local draft. This is not an unsigned transaction or a token deployment.',notice+`
   <div class="layout gap"><form id="draft" class="card">
@@ -54,7 +52,7 @@ if (current === '/') {
   <label>Pairing asset<select name="pair"><option value="native:sol">SOL</option><option value="${USDC}">USDC</option><option value="custom">Other Solana mint · draft only</option></select></label>
   <label id="custom" hidden>Pairing mint<input name="customMint" minlength="32" maxlength="44"></label>
   <label>Reference trading fee<select name="feeBps"><option value="100">1%</option><option value="200">2%</option><option value="250">2.5%</option></select></label>
-  <label>Preferred payout app<select name="payoutRail"><option value="xmoney">X Money</option><option value="cashapp">Cash App</option><option value="venmo">Venmo</option></select></label>
+  <label>Preferred payout app<select name="payoutRail"><option value="xmoney">X Money · validation pending</option><option value="cashapp" disabled>Cash App · planned</option><option value="venmo" disabled>Venmo · planned</option></select></label>
   <label>Recipient handle<input name="recipient" placeholder="@handle" required maxlength="31"></label>
   <label>First buy (asset base units)<input name="firstBuyBaseUnits" inputmode="numeric" pattern="[0-9]+" value="0" required></label>
   <label class="full">Solana creator wallet<input name="creatorWallet" minlength="32" maxlength="44" required></label>
@@ -65,7 +63,7 @@ if (current === '/') {
   <label>Mint nonce<input name="mintNonce" inputmode="numeric" pattern="[0-9]+" value="1"></label>
   <label id="token-program" hidden>Quote token program<select name="quoteTokenProgram"><option value="TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">Token</option><option value="TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb">Token-2022</option></select></label>
   </div><div class="actions"><button class="btn" type="submit">Save and review draft</button><button class="btn ghost" id="preview" type="button">Review unsigned instruction</button></div><pre id="out" aria-live="polite"></pre></form>
-  <div>${split}${sender}<section class="card gap" aria-labelledby="handoff-title"><span class="eyebrow">Official Float handoff</span>
+  <div>${split}${sender}<section class="card gap"><span class="eyebrow">Required before live routing</span><h2>Verify the recipient and payout rail</h2><p class="muted">A handle alone is not proof that an account can receive X Money. Production orders remain disabled until the SDK flow is configured and a controlled test verifies eligibility, settlement evidence, live order economics, and actual USD receipt.</p></section><section class="card gap" aria-labelledby="handoff-title"><span class="eyebrow">Official Float handoff</span>
   <h2 id="handoff-title">Continue on Float</h2><p class="muted">Save your draft first. For a Funded intake trial, wait for the operator to assign a dedicated fee wallet. On Float, select <strong>Other wallet</strong> and use that exact address. Draft details aren’t sent to Float and USD payouts aren’t active.</p>
   <div class="actions"><a class="btn ghost" href="https://www.floatlaunch.xyz/create" target="_blank" rel="noopener noreferrer">Open Float’s launch form <span aria-hidden="true">↗</span></a></div></section></div></div>`));
   const form = document.querySelector('#draft'), pair = form.elements.pair, custom = document.querySelector('#custom');
@@ -102,50 +100,36 @@ if (current === '/') {
       v.feeBps = Number(v.feeBps);
       delete v.image; delete v.customMint;
       const result = await request('/api/launch-preview',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(v)});
-      const rows = result.accounts.map(account => '<li><code>'+esc(account.name)+'</code> '+esc(account.pubkey)+(account.isSigner?' · signer':'')+'</li>').join('');
-      const buy = result.firstBuy ? '<h2>First buy</h2><p>'+esc(result.firstBuy.program)+' · minimum out '+esc(result.firstBuy.minimumOut)+' · execution '+(result.firstBuy.executionAuthorized?'on':'off')+'</p><ol>'+result.firstBuy.accounts.map(account => '<li><code>'+esc(account.name)+'</code> '+esc(account.pubkey)+'</li>').join('')+'</ol>' : '<p>No first buy is included.</p>';
-      out.innerHTML = '<section id="review"><h2>Transaction review</h2><p>This preview is unsigned. Submit is '+(result.submit?'on':'off')+'. Signature: '+esc(result.signature)+'. Blockhash: '+esc(result.blockhash)+'.</p><dl><dt>Program</dt><dd>'+esc(result.program)+'</dd><dt>LaunchLab</dt><dd>'+esc(result.launchlab)+'</dd><dt>Mint</dt><dd>'+esc(result.mint)+'</dd><dt>Fee receiver</dt><dd>'+esc(result.feeReceiver)+'</dd><dt>Chain pin</dt><dd>'+(result.chainPinChecked?'checked':'not checked')+'</dd></dl><h2>Launch accounts</h2><ol>'+rows+'</ol>'+buy+'</section>';
+      const rows = (result.accounts || []).map(account => '<li><code>'+esc(account.name)+'</code> '+esc(account.pubkey)+(account.isSigner?' · signer':'')+'</li>').join('');
+      const buy = result.firstBuy ? '<h2>First buy</h2><p>'+esc(result.firstBuy.program)+' · minimum out '+esc(result.firstBuy.minimumOut)+' · not submitted</p>' : '<p>No first buy is included.</p>';
+      out.innerHTML = '<section id="review"><h2>Transaction review</h2><p>Unsigned preview. Submit is '+(result.submit?'on':'off')+'.</p><dl><dt>Program</dt><dd>'+esc(result.program)+'</dd><dt>Fee receiver</dt><dd>'+esc(result.feeReceiver)+'</dd><dt>Mint</dt><dd>'+esc(result.mint)+'</dd></dl><ol>'+rows+'</ol>'+buy+'</section>';
     } catch (err) { renderOutput(out,err.message,true); }
     finally { button.disabled = false; }
   });
+} else if (current === '/how') {
+  html(page('Payout architecture','How Funded intends to settle creator fees','Every stage has its own evidence and failure state. A completed swap or bridge is not a completed creator payout.',notice+sender+`
+  <section class="lifecycle" aria-label="Planned Funded payout lifecycle">
+    <article class="card"><span>01</span><h2>Float receipt</h2><p>Confirm finalized creator-fee movement into the launch’s dedicated receiver and attribute exact integer units.</p><em>Evidence: Solana transaction</em></article>
+    <article class="card"><span>02</span><h2>Solana USDC</h2><p>Use an approved route with protected output. Unsupported assets stay in their original form.</p><em>Evidence: finalized swap</em></article>
+    <article class="card"><span>03</span><h2>Base USDC</h2><p>Bridge only through a pinned route and reconcile the destination amount before any payout order.</p><em>Evidence: source and destination</em></article>
+    <article class="card"><span>04</span><h2>Peer order</h2><p>Create an X Money order only after recipient eligibility, SDK integration, minimums, and live price are known.</p><em>Evidence: accepted order</em></article>
+    <article class="card"><span>05</span><h2>USD delivered</h2><p>Mark paid only after each Peer fill matches the persisted deposit, payee hash, amount, provider window, and an unused keyed receipt reference. Raw receipt links stay private.</p><em>Evidence: bound verified fiat fill</em></article>
+  </section>
+  <section class="grid"><div class="card"><span class="eyebrow">No claim balance</span><h2>Blocked means held</h2><p>If the recipient or route is not eligible, Base USDC stays held. Funded does not silently create a recovery wallet or call the payout complete.</p></div><div class="card"><span class="eyebrow">Honest economics</span><h2>Rate binds at intent</h2><p>Peer Cash reports zero spread against its Base oracle. The buyer’s signal binds the rate; estimates remain approximate until then.</p></div><div class="card"><span class="eyebrow">Visible sender</span><h2>Matched buyer</h2><p>The matched buyer appears as sender. The X Money payment notes can identify Funded as @fundedonfloat.</p></div></section>`));
 } else if (current === '/explore') {
-  html(page('Read-only tools','Token explorer','Inspect finalized activity or open a token page. A program call alone does not prove a Funded launch.',notice+`
-  <div class="card gap"><p id="health">Checking RPC…</p><form id="tx" class="entry"><label>Transaction signature<input name="signature" minlength="80" maxlength="88" required></label><button class="btn">Inspect</button></form>
-  <button id="recent" class="btn ghost">Load recent Float activity</button><div id="txout" aria-live="polite"></div>
-  <form id="token" class="entry"><label>Token mint<input name="mint" pattern="[1-9A-HJ-NP-Za-km-z]{32,44}" required></label><button class="btn">Open token page</button></form></div>`));
-  request('/api/rpc-health').then(health => {
-    const checks = (health.checks || []).map(check => esc(check.host)+' '+(check.ok?'up':'down')).join(', ') || 'no endpoints configured';
-    document.querySelector('#health').textContent = (health.healthy ? 'RPC healthy. ' : 'RPC not healthy. ') + checks;
-  }).catch(() => { document.querySelector('#health').textContent = 'RPC health unavailable.'; });
+  html(page('Read-only tools','Float explorer','Inspect finalized program activity or look up a Solana mint. A program call alone does not prove a Funded launch.',notice+`
+  <div class="card gap"><form id="tx" class="entry"><label>Transaction signature<input name="signature" minlength="80" maxlength="88" required></label><button class="btn">Inspect</button></form>
+  <button id="recent" class="btn ghost">Load recent Float activity</button><pre id="txout" aria-live="polite"></pre>
+  <form id="token" class="entry"><label>Token mint<input name="mint" pattern="[1-9A-HJ-NP-Za-km-z]{32,44}" required></label><button class="btn">Open mint detail</button></form></div>`));
   const out = document.querySelector('#txout');
-  function showTx(value) {
-    if (Array.isArray(value)) {
-      out.innerHTML = value.length ? '<ul>'+value.map(row => '<li><a href="/explore?signature='+encodeURIComponent(row.signature||'')+'">'+esc((row.signature||'').slice(0,12))+'…</a> slot '+esc(row.slot)+'</li>').join('')+'</ul>' : '<p class="muted">No recent activity.</p>';
-      return;
-    }
-    out.innerHTML = '<dl><dt>Signature</dt><dd>'+esc(value.signature)+'</dd><dt>Status</dt><dd>'+esc(value.status)+'</dd><dt>Float instruction</dt><dd>'+(value.floatOuterInstruction?'yes':'no')+'</dd><dt>Funded launch verified</dt><dd>'+(value.verifiedFundedLaunch?'yes':'no')+'</dd></dl>';
-  }
-  async function inspect(query) { out.textContent = 'Reading…'; try { showTx(await request('/api/transactions'+query)); } catch(e){ out.textContent = e.message; } }
+  async function inspect(query) { renderOutput(out,'Reading…'); try { renderOutput(out,await request('/api/transactions'+query)); } catch(e){renderOutput(out,e.message,true);} }
   document.querySelector('#tx').addEventListener('submit',e=>{e.preventDefault();inspect('?signature='+encodeURIComponent(e.currentTarget.elements.signature.value));});
   document.querySelector('#recent').addEventListener('click',()=>inspect(''));
   document.querySelector('#token').addEventListener('submit',e=>{e.preventDefault();location.href='/token/'+encodeURIComponent(e.currentTarget.elements.mint.value);});
 } else if (current.startsWith('/token/')) {
-  const mint = current.split('/').at(-1);
-  html(page('Token','Token page','Mint metadata and the Float launch account. A mint owner is not proof of a Funded payout.',notice+'<div id="mintout" class="card gap" aria-live="polite">Reading…</div>'));
+  html(page('Solana mint','Token details','Read finalized mint metadata. This view does not establish Float provenance.',notice+'<pre class="card gap" id="mintout" aria-live="polite">Reading…</pre>'));
   const out = document.querySelector('#mintout');
-  Promise.all([
-    request('/api/mint?mint='+encodeURIComponent(mint)).catch(error => ({ error: error.message })),
-    request('/api/float-account?mint='+encodeURIComponent(mint)).catch(error => ({ error: error.message }))
-  ]).then(([mintInfo, launch]) => {
-    const supply = mintInfo.info?.supply ?? mintInfo.error ?? 'unavailable';
-    out.innerHTML = '<dl><dt>Mint</dt><dd>'+esc(mint)+'</dd><dt>Token program</dt><dd>'+esc(mintInfo.tokenProgram || 'unknown')+'</dd><dt>Supply</dt><dd>'+esc(supply)+'</dd><dt>Decimals</dt><dd>'+esc(mintInfo.info?.decimals)+'</dd><dt>Launch account</dt><dd>'+esc(launch.launch)+'</dd><dt>Float coin</dt><dd>'+(launch.isFloatCoin?'yes':'no')+'</dd><dt>Checked</dt><dd>'+(launch.checked?'yes':'no')+'</dd><dt>Funded launch verified</dt><dd>'+(launch.verifiedFundedLaunch?'yes':'no')+'</dd></dl>';
-  }).catch(error => { out.textContent = error.message; });
-} else if (current === '/alerts') {
-  html(page('Operations','Alerts','Pause, ledger imbalance, attribution drift, and stale orders. This page does not send a page to an outside vendor.',notice+'<div id="alertout" class="card gap" aria-live="polite">Reading…</div>'));
-  request('/api/alerts').then(data => {
-    const rows = data.alerts.length ? '<ul>'+data.alerts.map(alert => '<li>'+esc(alert.severity)+' · '+esc(alert.kind)+'</li>').join('')+'</ul>' : '<p class="muted">No alerts.</p>';
-    document.querySelector('#alertout').innerHTML = rows;
-  }).catch(error => { document.querySelector('#alertout').textContent = error.message; });
+  request('/api/mint?mint='+encodeURIComponent(current.split('/').at(-1))).then(v=>renderOutput(out,v)).catch(e=>renderOutput(out,e.message,true));
 } else if (current === '/earnings') {
   html(page('Creator workspace','Creator earnings','One handle can cover many tokens. Balances appear only after a receipt is attributed. Nothing here is a claim.',notice+sender+`
   <form id="earn" class="card entry"><label>X handle<input name="handle" required maxlength="15"></label><button class="btn">Show earnings</button></form>
@@ -157,19 +141,19 @@ if (current === '/') {
     try {
       const data = await request('/api/earnings?handle='+encodeURIComponent(event.currentTarget.elements.handle.value));
       const rows = data.items.length ? data.items.map(item => '<section><h2>'+esc(item.mint)+'</h2><p>'+esc(item.status)+' · '+esc(item.asset)+' · '+esc(item.units)+'</p>'+costList(item.cost)+'</section>').join('') : '<p class="muted">No attributed earnings for this handle.</p>';
-      out.innerHTML = '<p class="muted">'+esc(data.senderNotice)+'</p><p>LP discount '+esc(data.lpDiscountBps)+' bps. Payment complete: '+(data.paymentComplete?'yes':'no')+'.</p>'+rows;
+      out.innerHTML = '<p class="muted">'+esc(data.senderNotice)+'</p><p class="muted">'+esc(data.marketplaceNotice)+'</p><p>Marketplace discount '+(data.lpDiscountBps == null ? 'not quoted' : esc(data.lpDiscountBps)+' bps')+'. Payment complete: '+(data.paymentComplete?'yes':'no')+'.</p>'+rows;
     } catch (error) { out.textContent = error.message; }
   });
 } else if (current === '/liquidity') {
   html(page('Peer settlement','Liquidity activity','A matched liquidity provider pays the creator through the selected app. A match is not a completed payment.',notice+sender+'<div id="liq" class="card gap" aria-live="polite">Reading…</div>'));
   request('/api/liquidity').then(data => {
     const rows = data.items.length ? data.items.map(item => '<li>'+esc(item.mint)+' · '+esc(item.decision)+' · spread '+esc(item.spreadBps)+' bps · orders '+(item.ordersEnabled?'on':'off')+'</li>').join('') : '<p class="muted">No liquidity-provider activity.</p>';
-    document.querySelector('#liq').innerHTML = '<p class="muted">'+esc(data.senderNotice)+'</p><p>Sender display: '+esc(data.senderDisplay)+'.</p><ul>'+rows+'</ul>';
+    document.querySelector('#liq').innerHTML = '<p class="muted">'+esc(data.senderNotice)+'</p><p class="muted">'+esc(data.marketplaceNotice)+'</p><p>Sender display: '+esc(data.senderDisplay)+'. Payment-note identity: '+esc(data.paymentNoteBranding)+'. Marketplace discount: '+(data.marketDiscountBps == null ? 'not quoted' : esc(data.marketDiscountBps)+' bps')+'.</p><ul>'+rows+'</ul>';
   }).catch(error => { document.querySelector('#liq').textContent = error.message; });
 } else {
   html(page('Public record','Payout history','Only verified settlement will appear here. Account handles, mailbox data and private recovery information are not public.',notice+'<div id="rows" class="card gap" aria-live="polite">Reading…</div>'));
   request('/api/payouts').then(data=>{
     const rows = data.items.length ? data.items.map(item=>'<section><h2>'+esc(item.status)+'</h2><p>'+esc(item.asset)+' · '+esc(item.units)+'</p>'+costList(item.cost)+'</section>').join('') : '<p class="muted">No verified Funded payouts.</p>';
-    document.querySelector('#rows').innerHTML = '<p class="muted">'+esc(data.senderNotice)+'</p><p>LP discount '+esc(data.lpDiscountBps)+' bps.</p>'+rows;
+    document.querySelector('#rows').innerHTML = '<p class="muted">'+esc(data.senderNotice)+'</p><p class="muted">'+esc(data.marketplaceNotice)+'</p><p>Marketplace discount '+(data.lpDiscountBps == null ? 'not quoted' : esc(data.lpDiscountBps)+' bps')+'.</p>'+rows;
   }).catch(e=>{ document.querySelector('#rows').textContent = e.message; });
 }

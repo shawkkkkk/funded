@@ -33,6 +33,7 @@ export function disclose(input: {
     bridgeFeeUsdc: input.bridgeFeeUsdc === null ? null : input.bridgeFeeUsdc.toString(),
     lpDiscountBps: 0,
     spreadBps: 0,
+    pricingBinding: 'intent-signal' as const,
     deliveredUsdMicros: verified ? input.deliveredUsdMicros.toString() : '0',
     pendingUsdc: input.pendingUsdc.toString(),
     paymentComplete: verified
