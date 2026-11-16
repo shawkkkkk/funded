@@ -11,6 +11,8 @@ import { localSdkFacts, OPEN_QUESTIONS, SENDER_NOTICE } from './peer-cash.ts';
 import { alerts } from './alerts.ts';
 import { screenerFromEnv } from './screening.ts';
 import { isFloatCoin, launchAddress } from './float-program.ts';
+import { watchReceiver } from './fee-monitor.ts';
+import { NATIVE } from './domain.ts';
 import { PublicKey } from '@solana/web3.js';
 
 const pages = new Set(['/','/launch','/explore','/earnings','/payouts','/liquidity']);
@@ -91,6 +93,15 @@ export function app(store: Store, reader?: SolanaReader, ledger?: PgLedger) {
           const data = typeof raw === 'string' ? Buffer.from(raw,'base64') : Buffer.alloc(0);
           return json(200,{mint:mint.toBase58(),launch,checked:true,owner:value?.owner??null,isFloatCoin:isFloatCoin(value?.owner??'',data,mint.toBase58()),verifiedFundedLaunch:false});
         } catch { return json(502,{error:'Unable to read Float launch account'}); }
+      }
+      if (req.method === 'GET' && path === '/api/deposits') {
+        if (!reader) return json(503,{error:'Read-only Solana RPC not configured'});
+        const account = url.searchParams.get('account') ?? '';
+        const asset = url.searchParams.get('asset') ?? NATIVE;
+        const expectedOwner = url.searchParams.get('owner') ?? '';
+        try {
+          return json(200, await watchReceiver(reader, { account, asset, expectedOwner }));
+        } catch (e) { return json(400,{error:e instanceof Error ? e.message : 'Unable to read deposits'}); }
       }
       if (req.method === 'GET' && path === '/api/transactions') {
         if (!reader) return json(503,{error:'Read-only Solana RPC not configured'});
