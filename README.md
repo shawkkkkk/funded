@@ -14,6 +14,8 @@ npm start
 
 The verified protocol notes are in [docs/INVESTIGATION.md](docs/INVESTIGATION.md). The system design is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). `POST /api/launch-preview` builds an unsigned Float `launch` instruction and returns no blockhash or signature. It does not submit anything. Set public `FUNDED_FEE_RECEIVER` to the operator address before a preview can name a receiver.
 
+Pause and recovery steps are in [docs/RUNBOOK.md](docs/RUNBOOK.md). Screening is a local denial list (`FUNDED_SCREEN_DENY`) and is not a live sanctions check.
+
 `FUNDED_DATABASE_URL` points the financial ledger at PostgreSQL. The server applies `db/postgres.sql` and `db/migrations` on startup. Drafts stay in SQLite. A fresh database is paused. Launch submission and Peer orders stay off. `FUNDED_LAUNCH_SIGNER` defaults to `creator`, `FUNDED_CUSTODY` to `funded_receiver_unapproved`, and `FUNDED_PRICING` to `zero_spread`.
 
 Open http://127.0.0.1:3100. Drafts and token images are saved in local SQLite. Optional `FUNDED_READ_RPC` is a comma-separated list of approved HTTPS Solana RPC endpoints; it enables read-only finalized transaction and mint views. `FUNDED_DB` overrides the local database path. Do not expose this local server publicly. The web interface uses the dark-blue reference palette, the adapted wave-and-dollar icon, and DM Sans (observed among Float's loaded assets, not verified as the wordmark's exact typeface). Obtain permission and clear the mark/name before public commercial use; this is not a Float-endorsed product.
