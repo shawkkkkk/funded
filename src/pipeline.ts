@@ -1,7 +1,7 @@
 import { SOLANA_USDC } from './domain.ts';
 import type { PgLedger } from './pg-ledger.ts';
 
-export type SwapPlan = { status: 'quote_only' | 'waiting_route' | 'already_usdc'; minimumUsdcUnits?: string; reason?: string; executionAuthorized: false };
+export type SwapPlan = { status: 'quote_only' | 'waiting_route' | 'already_usdc'; minimumUsdcUnits?: string; reason?: string; executionAuthorized: false; fixtureAdvance?: boolean };
 export type BridgeView = { status: string; baseSettlementVerified: false; burnAuthorized: false; executionAuthorized: false };
 export type ScreenDecision = { decision: 'clear' | 'review' | 'blocked'; provider: 'fixture' | 'unconfigured'; live: false };
 export type PipelinePorts = {
@@ -31,6 +31,10 @@ export async function stepPipeline(ledger: PgLedger, ports: PipelinePorts, now =
       const plan = await ports.planSwap({ asset: String(job.payload.asset), units: String(job.payload.units) });
       if (plan.executionAuthorized !== false) throw Error('Swap execution is disabled');
       await ledger.observe({ id: 'swap:' + job.batchId, batchId: job.batchId, kind: 'swap_plan', payload: plan });
+      if (plan.status === 'quote_only' && plan.fixtureAdvance === true) {
+        if (!plan.minimumUsdcUnits) throw Error('Fixture quote is missing a USDC floor');
+        await ledger.enqueue({ idempotencyKey: 'bridge_check:' + job.batchId, batchId: job.batchId, kind: 'bridge_check', dueAt: now, payload: { payee: job.payload.payee, asset: SOLANA_USDC, units: plan.minimumUsdcUnits, fixture: true } });
+      }
       await ledger.complete(job.id, job.fence);
       return { kind: job.kind, batchId: job.batchId, status: plan.status, executionAuthorized: false as const };
     }
