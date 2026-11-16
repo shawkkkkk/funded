@@ -100,7 +100,9 @@ if (current === '/') {
       v.feeBps = Number(v.feeBps);
       delete v.image; delete v.customMint;
       const result = await request('/api/launch-preview',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(v)});
-      renderOutput(out,{status:result.status,program:result.program,mint:result.mint,feeReceiver:result.feeReceiver,accounts:result.accounts.length,submit:result.submit,signature:result.signature,firstBuyEncoded:result.firstBuyEncoded,chainPinChecked:result.chainPinChecked});
+      const rows = (result.accounts || []).map(account => '<li><code>'+esc(account.name)+'</code> '+esc(account.pubkey)+(account.isSigner?' · signer':'')+'</li>').join('');
+      const buy = result.firstBuy ? '<h2>First buy</h2><p>'+esc(result.firstBuy.program)+' · minimum out '+esc(result.firstBuy.minimumOut)+' · not submitted</p>' : '<p>No first buy is included.</p>';
+      out.innerHTML = '<section id="review"><h2>Transaction review</h2><p>Unsigned preview. Submit is '+(result.submit?'on':'off')+'.</p><dl><dt>Program</dt><dd>'+esc(result.program)+'</dd><dt>Fee receiver</dt><dd>'+esc(result.feeReceiver)+'</dd><dt>Mint</dt><dd>'+esc(result.mint)+'</dd></dl><ol>'+rows+'</ol>'+buy+'</section>';
     } catch (err) { renderOutput(out,err.message,true); }
     finally { button.disabled = false; }
   });

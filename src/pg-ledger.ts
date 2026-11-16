@@ -207,7 +207,7 @@ export class PgLedger {
     return this.tx(async db => {
       const row = await db.query(
         `SELECT id, idempotency_key, batch_id, kind, payload, attempts, max_attempts, fence FROM outbox
-         WHERE status IN ('pending','retry') AND due_at <= $1 AND (lease_until IS NULL OR lease_until <= $1)
+         WHERE due_at <= $1 AND (status IN ('pending','retry') OR (status = 'leased' AND lease_until <= $1))
          ORDER BY due_at, id FOR UPDATE SKIP LOCKED LIMIT 1`, [now]);
       if (!row.rows[0]) return null;
       const fence = Number(row.rows[0].fence) + 1;
