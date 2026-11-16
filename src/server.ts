@@ -7,6 +7,7 @@ import { loadConfig } from './config.ts';
 import { PgLedger } from './pg-ledger.ts';
 import { previewLaunch } from './launch-preview.ts';
 import { disclose } from './disclosure.ts';
+import { handle as xhandle } from './domain.ts';
 import { localSdkFacts, OPEN_QUESTIONS, SENDER_NOTICE } from './peer-cash.ts';
 import { alerts } from './alerts.ts';
 import { screenerFromEnv } from './screening.ts';
@@ -79,7 +80,22 @@ export function app(store: Store, reader?: SolanaReader, ledger?: PgLedger) {
         const sample = disclose({quoteUnits:10_000n,convertedUsdc:null,bridgeFeeUsdc:null,deliveredUsdMicros:0n,pendingUsdc:0n,fiatVerified:false});
         return json(200,{senderNotice:SENDER_NOTICE,openQuestions:OPEN_QUESTIONS,lpDiscountBps:0,spreadBps:0,sample,paymentComplete:false});
       }
-      if (req.method === 'GET' && path === '/api/payouts') return json(200,{mode:'local_draft_only',senderNotice:SENDER_NOTICE,items:ledger?await ledger.publicBatches():store.publicBatches()});
+      if (req.method === 'GET' && path === '/api/earnings') {
+        let creator = '';
+        try { creator = xhandle(url.searchParams.get('handle') ?? ''); }
+        catch (e) { return json(400,{error:e instanceof Error ? e.message : 'Invalid handle'}); }
+        const rows = ledger ? await ledger.creatorBatches(creator) : [];
+        const items = rows.map(row => ({ ...row, cost: costFor(row) }));
+        return json(200,{handle:creator,items,senderNotice:SENDER_NOTICE,lpDiscountBps:0,spreadBps:0,paymentComplete:false,database:ledger?'postgres':'sqlite'});
+      }
+      if (req.method === 'GET' && path === '/api/liquidity') {
+        const items = ledger ? await ledger.liquidityActivity() : [];
+        return json(200,{items,senderNotice:SENDER_NOTICE,spreadBps:0,ordersEnabled:false,senderDisplay:'unresolved'});
+      }
+      if (req.method === 'GET' && path === '/api/payouts') {
+        const rows = ledger ? await ledger.publicBatches() : store.publicBatches();
+        return json(200,{mode:'local_draft_only',senderNotice:SENDER_NOTICE,lpDiscountBps:0,spreadBps:0,items:rows.map(row => ({...row, cost:costFor(row)}))});
+      }
       if (req.method === 'GET' && path === '/api/float-account') {
         let mint: PublicKey;
         try { mint = new PublicKey(url.searchParams.get('mint') ?? ''); }
@@ -143,6 +159,12 @@ export function app(store: Store, reader?: SolanaReader, ledger?: PgLedger) {
       return json(404,{error:'Not found'});
     } catch { return json(500,{error:'Internal error'}); }
   });
+}
+function costFor(row: { units?: string; paid_usd?: string; status?: string }) {
+  const units = BigInt(row.units ?? '0');
+  const paid = BigInt(row.paid_usd ?? '0');
+  const verified = row.status === 'paid' && paid > 0n;
+  return disclose({ quoteUnits: units, convertedUsdc: null, bridgeFeeUsdc: null, deliveredUsdMicros: verified ? paid : 0n, pendingUsdc: verified ? 0n : units, fiatVerified: verified });
 }
 function send(res: ServerResponse,status:number,type:string,bytes:string|Buffer) {
   res.writeHead(status,{'Content-Type':type.startsWith('image') ? type : type+'; charset=utf-8'});

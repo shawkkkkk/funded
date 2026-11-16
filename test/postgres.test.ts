@@ -111,7 +111,16 @@ test('postgres ledger, outbox, and planning pipeline', { skip: url ? false : 'FU
       assert.equal(status.pricing, 'zero_spread');
       const payouts = await (await fetch(origin + '/api/payouts')).json();
       assert.equal(payouts.items.length, 2);
+      assert.equal(payouts.items[0].cost.lpDiscountBps, 0);
+      assert.equal(payouts.items[0].cost.paymentComplete, false);
       assert.match(payouts.senderNotice, /liquidity provider/);
+      const earnings = await (await fetch(origin + '/api/earnings?handle=creator')).json();
+      assert.equal(earnings.items.length, 2);
+      assert.equal(earnings.paymentComplete, false);
+      const liquidity = await (await fetch(origin + '/api/liquidity')).json();
+      assert.equal(liquidity.ordersEnabled, false);
+      assert.equal(liquidity.senderDisplay, 'unresolved');
+      assert.ok(liquidity.items.length >= 1);
     } finally { await new Promise(resolve => server.close(resolve)); }
   } finally { await ledger.close(); }
 });
