@@ -102,24 +102,50 @@ if (current === '/') {
       v.feeBps = Number(v.feeBps);
       delete v.image; delete v.customMint;
       const result = await request('/api/launch-preview',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(v)});
-      renderOutput(out,{status:result.status,program:result.program,mint:result.mint,feeReceiver:result.feeReceiver,accounts:result.accounts.length,submit:result.submit,signature:result.signature,firstBuyEncoded:result.firstBuyEncoded,chainPinChecked:result.chainPinChecked});
+      const rows = result.accounts.map(account => '<li><code>'+esc(account.name)+'</code> '+esc(account.pubkey)+(account.isSigner?' · signer':'')+'</li>').join('');
+      const buy = result.firstBuy ? '<h2>First buy</h2><p>'+esc(result.firstBuy.program)+' · minimum out '+esc(result.firstBuy.minimumOut)+' · execution '+(result.firstBuy.executionAuthorized?'on':'off')+'</p><ol>'+result.firstBuy.accounts.map(account => '<li><code>'+esc(account.name)+'</code> '+esc(account.pubkey)+'</li>').join('')+'</ol>' : '<p>No first buy is included.</p>';
+      out.innerHTML = '<section id="review"><h2>Transaction review</h2><p>This preview is unsigned. Submit is '+(result.submit?'on':'off')+'. Signature: '+esc(result.signature)+'. Blockhash: '+esc(result.blockhash)+'.</p><dl><dt>Program</dt><dd>'+esc(result.program)+'</dd><dt>LaunchLab</dt><dd>'+esc(result.launchlab)+'</dd><dt>Mint</dt><dd>'+esc(result.mint)+'</dd><dt>Fee receiver</dt><dd>'+esc(result.feeReceiver)+'</dd><dt>Chain pin</dt><dd>'+(result.chainPinChecked?'checked':'not checked')+'</dd></dl><h2>Launch accounts</h2><ol>'+rows+'</ol>'+buy+'</section>';
     } catch (err) { renderOutput(out,err.message,true); }
     finally { button.disabled = false; }
   });
 } else if (current === '/explore') {
-  html(page('Read-only tools','Float explorer','Inspect finalized program activity or look up a Solana mint. A program call alone does not prove a Funded launch.',notice+`
-  <div class="card gap"><form id="tx" class="entry"><label>Transaction signature<input name="signature" minlength="80" maxlength="88" required></label><button class="btn">Inspect</button></form>
-  <button id="recent" class="btn ghost">Load recent Float activity</button><pre id="txout" aria-live="polite"></pre>
-  <form id="token" class="entry"><label>Token mint<input name="mint" pattern="[1-9A-HJ-NP-Za-km-z]{32,44}" required></label><button class="btn">Open mint detail</button></form></div>`));
+  html(page('Read-only tools','Token explorer','Inspect finalized activity or open a token page. A program call alone does not prove a Funded launch.',notice+`
+  <div class="card gap"><p id="health">Checking RPC…</p><form id="tx" class="entry"><label>Transaction signature<input name="signature" minlength="80" maxlength="88" required></label><button class="btn">Inspect</button></form>
+  <button id="recent" class="btn ghost">Load recent Float activity</button><div id="txout" aria-live="polite"></div>
+  <form id="token" class="entry"><label>Token mint<input name="mint" pattern="[1-9A-HJ-NP-Za-km-z]{32,44}" required></label><button class="btn">Open token page</button></form></div>`));
+  request('/api/rpc-health').then(health => {
+    const checks = (health.checks || []).map(check => esc(check.host)+' '+(check.ok?'up':'down')).join(', ') || 'no endpoints configured';
+    document.querySelector('#health').textContent = (health.healthy ? 'RPC healthy. ' : 'RPC not healthy. ') + checks;
+  }).catch(() => { document.querySelector('#health').textContent = 'RPC health unavailable.'; });
   const out = document.querySelector('#txout');
-  async function inspect(query) { renderOutput(out,'Reading…'); try { renderOutput(out,await request('/api/transactions'+query)); } catch(e){renderOutput(out,e.message,true);} }
+  function showTx(value) {
+    if (Array.isArray(value)) {
+      out.innerHTML = value.length ? '<ul>'+value.map(row => '<li><a href="/explore?signature='+encodeURIComponent(row.signature||'')+'">'+esc((row.signature||'').slice(0,12))+'…</a> slot '+esc(row.slot)+'</li>').join('')+'</ul>' : '<p class="muted">No recent activity.</p>';
+      return;
+    }
+    out.innerHTML = '<dl><dt>Signature</dt><dd>'+esc(value.signature)+'</dd><dt>Status</dt><dd>'+esc(value.status)+'</dd><dt>Float instruction</dt><dd>'+(value.floatOuterInstruction?'yes':'no')+'</dd><dt>Funded launch verified</dt><dd>'+(value.verifiedFundedLaunch?'yes':'no')+'</dd></dl>';
+  }
+  async function inspect(query) { out.textContent = 'Reading…'; try { showTx(await request('/api/transactions'+query)); } catch(e){ out.textContent = e.message; } }
   document.querySelector('#tx').addEventListener('submit',e=>{e.preventDefault();inspect('?signature='+encodeURIComponent(e.currentTarget.elements.signature.value));});
   document.querySelector('#recent').addEventListener('click',()=>inspect(''));
   document.querySelector('#token').addEventListener('submit',e=>{e.preventDefault();location.href='/token/'+encodeURIComponent(e.currentTarget.elements.mint.value);});
 } else if (current.startsWith('/token/')) {
-  html(page('Solana mint','Token details','Read finalized mint metadata. This view does not establish Float provenance.',notice+'<pre class="card gap" id="mintout" aria-live="polite">Reading…</pre>'));
+  const mint = current.split('/').at(-1);
+  html(page('Token','Token page','Mint metadata and the Float launch account. A mint owner is not proof of a Funded payout.',notice+'<div id="mintout" class="card gap" aria-live="polite">Reading…</div>'));
   const out = document.querySelector('#mintout');
-  request('/api/mint?mint='+encodeURIComponent(current.split('/').at(-1))).then(v=>renderOutput(out,v)).catch(e=>renderOutput(out,e.message,true));
+  Promise.all([
+    request('/api/mint?mint='+encodeURIComponent(mint)).catch(error => ({ error: error.message })),
+    request('/api/float-account?mint='+encodeURIComponent(mint)).catch(error => ({ error: error.message }))
+  ]).then(([mintInfo, launch]) => {
+    const supply = mintInfo.info?.supply ?? mintInfo.error ?? 'unavailable';
+    out.innerHTML = '<dl><dt>Mint</dt><dd>'+esc(mint)+'</dd><dt>Token program</dt><dd>'+esc(mintInfo.tokenProgram || 'unknown')+'</dd><dt>Supply</dt><dd>'+esc(supply)+'</dd><dt>Decimals</dt><dd>'+esc(mintInfo.info?.decimals)+'</dd><dt>Launch account</dt><dd>'+esc(launch.launch)+'</dd><dt>Float coin</dt><dd>'+(launch.isFloatCoin?'yes':'no')+'</dd><dt>Checked</dt><dd>'+(launch.checked?'yes':'no')+'</dd><dt>Funded launch verified</dt><dd>'+(launch.verifiedFundedLaunch?'yes':'no')+'</dd></dl>';
+  }).catch(error => { out.textContent = error.message; });
+} else if (current === '/alerts') {
+  html(page('Operations','Alerts','Pause, ledger imbalance, attribution drift, and stale orders. This page does not send a page to an outside vendor.',notice+'<div id="alertout" class="card gap" aria-live="polite">Reading…</div>'));
+  request('/api/alerts').then(data => {
+    const rows = data.alerts.length ? '<ul>'+data.alerts.map(alert => '<li>'+esc(alert.severity)+' · '+esc(alert.kind)+'</li>').join('')+'</ul>' : '<p class="muted">No alerts.</p>';
+    document.querySelector('#alertout').innerHTML = rows;
+  }).catch(error => { document.querySelector('#alertout').textContent = error.message; });
 } else if (current === '/earnings') {
   html(page('Creator workspace','Creator earnings','One handle can cover many tokens. Balances appear only after a receipt is attributed. Nothing here is a claim.',notice+sender+`
   <form id="earn" class="card entry"><label>X handle<input name="handle" required maxlength="15"></label><button class="btn">Show earnings</button></form>

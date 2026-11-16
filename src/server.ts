@@ -16,7 +16,7 @@ import { watchReceiver } from './fee-monitor.ts';
 import { NATIVE } from './domain.ts';
 import { PublicKey } from '@solana/web3.js';
 
-const pages = new Set(['/','/launch','/explore','/earnings','/payouts','/liquidity']);
+const pages = new Set(['/','/launch','/explore','/earnings','/payouts','/liquidity','/alerts']);
 const assets = new Map([['/app.js','text/javascript'],['/style.css','text/css'],['/funded-mark.webp','image/webp']]);
 const png = Buffer.from('89504e470d0a1a0a','hex');
 function isImage(bytes: Buffer, type: string) {
@@ -63,6 +63,11 @@ export function app(store: Store, reader?: SolanaReader, ledger?: PgLedger) {
         const config = loadConfig();
         const paused = ledger ? await ledger.pauseReason() : store.pauseReason();
         return json(200,{mode:'local_draft_only',product:'Funded',launchEnabled:false,payoutEnabled:false,peerOrdersEnabled:false,launchSigner:config.launchSigner,custody:config.custody,pricing:config.pricing,database:ledger?'postgres':'sqlite',rpcConfigured:!!reader,paused:paused??null,senderDisplay:'unresolved',senderNotice:SENDER_NOTICE,openQuestions:OPEN_QUESTIONS,peer:{spreadBps:peer.spreadBps,minBaseUnits:peer.minBaseUnits,ordersEnabled:false}});
+      }
+      if (req.method === 'GET' && path === '/api/rpc-health') {
+        if (!reader) return json(200,{configured:false,healthy:false,checks:[],readsOnly:true});
+        try { return json(200,{configured:true,...await reader.health()}); }
+        catch { return json(200,{configured:true,healthy:false,checks:[],readsOnly:true}); }
       }
       if (req.method === 'GET' && path === '/api/alerts') {
         let unbalanced = false;

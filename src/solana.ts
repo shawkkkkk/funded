@@ -31,6 +31,26 @@ export class SolanaReader {
     }
     throw Error('Solana RPC unavailable');
   }
+  async health() {
+    const checks = [];
+    for (const url of this.urls) {
+      const started = Date.now();
+      let ok = false;
+      try {
+        const res = await this.transport(url, {
+          method:'POST', headers:{'content-type':'application/json'},
+          body:JSON.stringify({jsonrpc:'2.0',id:1,method:'getGenesisHash',params:[]}),
+          redirect:'error', signal:AbortSignal.timeout(4500)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          ok = data.id === 1 && typeof data.result === 'string' && !data.error;
+        }
+      } catch { ok = false; }
+      checks.push({ host: url.host, ok, ms: Date.now() - started });
+    }
+    return { healthy: checks.some(check => check.ok), checks, readsOnly: true as const };
+  }
   async recentFloatSignatures() {
     return this.read('getSignaturesForAddress',[FLOAT,{commitment:'finalized',limit:15}]);
   }
