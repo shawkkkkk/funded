@@ -45,7 +45,7 @@ export function app(store: Store, reader?: SolanaReader, ledger?: PgLedger) {
     res.setHeader('Referrer-Policy','no-referrer');
     res.setHeader('X-Frame-Options','DENY');
     res.setHeader('Cache-Control','no-store');
-    res.setHeader('Content-Security-Policy',"default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'self' blob:; form-action 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com");
+    res.setHeader('Content-Security-Policy',"default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'self' blob:; form-action 'self'; style-src 'self'; font-src 'self'");
     const json = (status: number, data: unknown) => send(res,status,'application/json',JSON.stringify(data));
     try {
       // This build is intentionally local-only. Reject DNS rebinding and cross-origin writes.
